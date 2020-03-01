@@ -22,11 +22,6 @@ class ReplayBuffer():
     def clean(self):
         raise NotImplementedError
 
-
-# def lmdb_read_worker(env, idxs):
-#     with env.begin() as txn:
-#         return [pickle.loads(txn.get(key=str(idx).encode())) for idx in idxs]
-
 class LmdbBuffer(ReplayBuffer):
     def __init__(self, lmdb_path, capabilicy=1000000):
         self.lmdb_path = lmdb_path
@@ -46,7 +41,9 @@ class LmdbBuffer(ReplayBuffer):
                 # txn.commit() # auto commit when txn close
 
     def sample(self, num, shullfer=True):
-        assert self.count - max(0,self.count-self.cap) >= num, "lmdb:{} don't contain enough data".format(self.count - max(0,self.count-self.cap))
+        if num > self.count - max(0,self.count-self.cap):
+            print("lmdb:{} don't contain enough data".format(self.count - max(0,self.count-self.cap)))
+            num = self.count - max(0,self.count-self.cap)
         if shullfer == True:
             idxs = np.random.randint(low=max(0,self.count-self.cap), high=self.count, size=num).tolist()
         else:
@@ -65,6 +62,7 @@ class LmdbBuffer(ReplayBuffer):
 import unittest 
 import time
 import ray
+import random
 
 class TestCase(unittest.TestCase):
     #在setUp()方法中进行测试前的初始化工作。
@@ -111,7 +109,30 @@ class TestCase(unittest.TestCase):
             x = np.array(data[100*i:100*(i+1)])
             assert np.linalg.norm(x - np.ones_like(x) * np.mean(x)) == 0
         self.buffer.clean.remote()
+
+    def test_ParallelInsertRead(self):
+        def worker(buffer, *txns):
+            time.sleep(random.randint(1,10)/500.0)
+            return buffer.push.remote(*txns)
         
+        print("\n#Test: Parallel Insert") 
+        self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
+        write_tsks = [ray.remote(worker).remote(self.buffer, *[i for _ in range(100)]) for i in range(10)]
+        ray.wait(write_tsks)
+        read_tsks = []
+        for _ in range(10):
+            time.sleep(0.002)
+            read_tsks.append(self.buffer.sample.remote(1000, shullfer=False)) 
+        data_list = ray.get(read_tsks)
+        for data in data_list:
+            print(len(data))
+            assert len(data) % 100 == 0
+            for i in range(len(data)//100):
+                x = np.array(data[100*i:100*(i+1)])
+                assert np.linalg.norm(x - np.ones_like(x) * np.mean(x)) == 0
+        ray.wait(write_tsks, num_returns=10)
+        self.buffer.clean.remote()
+
     def test_TempSerialInsert(self):
         def worker(buffer, *txns):
             time.sleep(1)
@@ -136,6 +157,8 @@ def suite():
     suite.addTest(TestCase("test_TempSerialInsert"))
     suite.addTest(TestCase("test_SerialInsert"))
     suite.addTest(TestCase("test_ParallelInsert"))
+    suite.addTest(TestCase("test_ParallelInsertRead"))
+    
     return suite
 
 if __name__ == "__main__":
