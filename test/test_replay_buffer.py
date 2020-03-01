@@ -37,7 +37,7 @@ class TestCase(unittest.TestCase):
     def test_ParallelInsert(self):
         def worker(buffer, *txns):
             time.sleep(1)
-            return buffer.push.remote(*txns)
+            return ray.wait([buffer.push.remote(*txns)])
         
         print("\n#Test: Parallel Insert") 
         self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
@@ -51,21 +51,21 @@ class TestCase(unittest.TestCase):
         for i in range(10):
             x = np.array(data[100*i:100*(i+1)])
             assert np.linalg.norm(x - np.ones_like(x) * np.mean(x)) == 0
-        self.buffer.clean.remote()
+        ray.wait([self.buffer.clean.remote()])
 
-    def test_ParallelInsertRead(self):
+    def test_SimulatenouslyReadWrite(self):
         def worker(buffer, *txns):
             time.sleep(random.randint(1,10)/500.0)
-            return buffer.push.remote(*txns)
+            return ray.wait([buffer.push.remote(*txns)])
         
-        print("\n#Test: Parallel Insert") 
+        print("\n#Test: Simulatenously Read Write") 
         self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
         write_tsks = [ray.remote(worker).remote(self.buffer, *[i for _ in range(100)]) for i in range(10)]
         ray.wait(write_tsks)
         read_tsks = []
         for _ in range(10):
             time.sleep(0.002)
-            read_tsks.append(self.buffer.sample.remote(1000, shullfer=False)) 
+            read_tsks.append(self.buffer.sampleV2.remote(1000, 4, shullfer=False)) 
         data_list = ray.get(read_tsks)
         for data in data_list:
             print(len(data))
@@ -74,26 +74,23 @@ class TestCase(unittest.TestCase):
                 x = np.array(data[100*i:100*(i+1)])
                 assert np.linalg.norm(x - np.ones_like(x) * np.mean(x)) == 0
         ray.wait(write_tsks, num_returns=10)
-        self.buffer.clean.remote()
+        ray.wait([self.buffer.clean.remote()])
 
     def test_MultiprocessRead(self):
         def worker(buffer, *txns):
             time.sleep(1)
-            return buffer.push.remote(*txns)
+            return ray.wait([buffer.push.remote(*txns)])
         
-        print("\n#Test: Parallel Insert") 
+        print("\n#Test: Multiprocess Read") 
         self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
-        start = time.time()
         task_ids = [ray.remote(worker).remote(self.buffer, *[i for _ in range(100)]) for i in range(10)]
         ray.get(task_ids)
-        end = time.time()
-        print("Time: {}".format(end - start))
         data = self.buffer.sampleV2.remote(1000, worker_num=4, shullfer=False)
         data = ray.get(data)
         for i in range(10):
             x = np.array(data[100*i:100*(i+1)])
             assert np.linalg.norm(x - np.ones_like(x) * np.mean(x)) == 0
-        self.buffer.clean.remote()
+        ray.wait([self.buffer.clean.remote()])
 
     def test_TempSerialInsert(self):
         def worker(buffer, *txns):
@@ -116,10 +113,10 @@ class TestCase(unittest.TestCase):
 def suite():
     ray.init()
     suite = unittest.TestSuite()
-    # suite.addTest(TestCase("test_TempSerialInsert"))
-    # suite.addTest(TestCase("test_SerialInsert"))
-    # suite.addTest(TestCase("test_ParallelInsert"))
-    # suite.addTest(TestCase("test_ParallelInsertRead"))
+    suite.addTest(TestCase("test_TempSerialInsert"))
+    suite.addTest(TestCase("test_SerialInsert"))
+    suite.addTest(TestCase("test_ParallelInsert"))
+    suite.addTest(TestCase("test_SimulatenouslyReadWrite"))
     suite.addTest(TestCase("test_MultiprocessRead"))
     
     return suite
