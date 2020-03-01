@@ -76,6 +76,25 @@ class TestCase(unittest.TestCase):
         ray.wait(write_tsks, num_returns=10)
         self.buffer.clean.remote()
 
+    def test_MultiprocessRead(self):
+        def worker(buffer, *txns):
+            time.sleep(1)
+            return buffer.push.remote(*txns)
+        
+        print("\n#Test: Parallel Insert") 
+        self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
+        start = time.time()
+        task_ids = [ray.remote(worker).remote(self.buffer, *[i for _ in range(100)]) for i in range(10)]
+        ray.get(task_ids)
+        end = time.time()
+        print("Time: {}".format(end - start))
+        data = self.buffer.sampleV2.remote(1000, worker_num=4, shullfer=False)
+        data = ray.get(data)
+        for i in range(10):
+            x = np.array(data[100*i:100*(i+1)])
+            assert np.linalg.norm(x - np.ones_like(x) * np.mean(x)) == 0
+        self.buffer.clean.remote()
+
     def test_TempSerialInsert(self):
         def worker(buffer, *txns):
             time.sleep(1)
@@ -97,10 +116,11 @@ class TestCase(unittest.TestCase):
 def suite():
     ray.init()
     suite = unittest.TestSuite()
-    suite.addTest(TestCase("test_TempSerialInsert"))
-    suite.addTest(TestCase("test_SerialInsert"))
-    suite.addTest(TestCase("test_ParallelInsert"))
-    suite.addTest(TestCase("test_ParallelInsertRead"))
+    # suite.addTest(TestCase("test_TempSerialInsert"))
+    # suite.addTest(TestCase("test_SerialInsert"))
+    # suite.addTest(TestCase("test_ParallelInsert"))
+    # suite.addTest(TestCase("test_ParallelInsertRead"))
+    suite.addTest(TestCase("test_MultiprocessRead"))
     
     return suite
 
