@@ -65,7 +65,7 @@ class TestCase(unittest.TestCase):
         read_tsks = []
         for _ in range(10):
             time.sleep(0.002)
-            read_tsks.append(self.buffer.sampleV2.remote(1000, 4, shullfer=False)) 
+            read_tsks.append(self.buffer.sample.remote(1000, 4, shullfer=False)) 
         data_list = ray.get(read_tsks)
         for data in data_list:
             print(len(data))
@@ -85,7 +85,7 @@ class TestCase(unittest.TestCase):
         self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
         task_ids = [ray.remote(worker).remote(self.buffer, *[i for _ in range(100)]) for i in range(10)]
         ray.get(task_ids)
-        data = self.buffer.sampleV2.remote(1000, worker_num=4, shullfer=False)
+        data = self.buffer.sample.remote(1000, worker_num=4, shullfer=False)
         data = ray.get(data)
         for i in range(10):
             x = np.array(data[100*i:100*(i+1)])
