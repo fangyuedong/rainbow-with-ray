@@ -24,7 +24,7 @@ class TestCase(unittest.TestCase):
         print("\n#Test: Serial Insert")
         self.buffer = LmdbBuffer("./ut_lmdb")
         start = time.time()
-        [worker(self.buffer, *[i for _ in range(100)]) for i in range(10)]
+        [worker(self.buffer, [i for _ in range(100)]) for i in range(10)]
         end = time.time()
         print("Time: {}".format(end - start))
         data = self.buffer.sample(1000, shullfer=False)
@@ -42,7 +42,7 @@ class TestCase(unittest.TestCase):
         print("\n#Test: Parallel Insert") 
         self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
         start = time.time()
-        task_ids = [ray.remote(worker).remote(self.buffer, *[i for _ in range(100)]) for i in range(10)]
+        task_ids = [ray.remote(worker).remote(self.buffer, [i for _ in range(100)]) for i in range(10)]
         ray.get(task_ids)
         end = time.time()
         print("Time: {}".format(end - start))
@@ -60,7 +60,7 @@ class TestCase(unittest.TestCase):
         
         print("\n#Test: Simulatenously Read Write") 
         self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
-        write_tsks = [ray.remote(worker).remote(self.buffer, *[i for _ in range(100)]) for i in range(10)]
+        write_tsks = [ray.remote(worker).remote(self.buffer, [i for _ in range(100)]) for i in range(10)]
         ray.wait(write_tsks)
         read_tsks = []
         for _ in range(10):
@@ -83,7 +83,7 @@ class TestCase(unittest.TestCase):
         
         print("\n#Test: Multiprocess Read") 
         self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
-        task_ids = [ray.remote(worker).remote(self.buffer, *[i for _ in range(100)]) for i in range(10)]
+        task_ids = [ray.remote(worker).remote(self.buffer, [i for _ in range(100)]) for i in range(10)]
         ray.get(task_ids)
         data = self.buffer.sample.remote(1000, worker_num=4, shullfer=False)
         data = ray.get(data)
@@ -100,8 +100,8 @@ class TestCase(unittest.TestCase):
         print("\n#Test: Temp Serial Insert")
         self.buffer = LmdbBuffer("./ut_lmdb")
         start = time.time()
-        worker(self.buffer, *[1,1,1,1,1])
-        worker(self.buffer, *[2,2,2,2,2])
+        worker(self.buffer, [1,1,1,1,1])
+        worker(self.buffer, [2,2,2,2,2])
         end = time.time()
         print("Time: {}".format(end - start))
         self.buffer.clean()
