@@ -10,7 +10,7 @@ Transition = {"state": np.array, "action": int, "next_state": np.array, "reward"
 """
 
 class ReplayBuffer():
-    def push(self, *txns):
+    def push(self, data):
         """open replay buffer and push txns"""
         raise NotImplementedError
 
