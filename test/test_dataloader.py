@@ -20,10 +20,11 @@ class TestCase(unittest.TestCase):
  
     def test_1_worker(self):
         exc_worker = BasicWorker()
+        print(exc_worker._shape())
         buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
         dataloader = Dataloader(buffer, batch_size=256, worker_num=1)
         for i in range(20):
-            traj = exc_worker.exc()
+            traj = exc_worker.__next__()
             ray.get(buffer.push.remote(traj))
             print(i)
         count = 0

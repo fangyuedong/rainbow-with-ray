@@ -154,9 +154,25 @@ class ProcessFrame84(gym.Wrapper):
         return _process_frame84(self.env.reset())
 
 class ClippedRewardsWrapper(gym.Wrapper):
-    def _step(self, action):
+    def step(self, action):
         obs, reward, done, info = self.env.step(action)
         return obs, np.sign(reward), done, info
+
+def _swap_chn(ob):
+    return np.transpose(ob, (2,0,1))
+
+class SwapChn(gym.Wrapper):
+    def __init__(self, env=None):
+        super(SwapChn, self).__init__(env)
+        self.observation_space = spaces.Box(low=0, high=255, shape=(self.observation_space.shape[-1], )+self.observation_space.shape[:-1])
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        return _swap_chn(obs), reward, done, info
+
+    def reset(self):
+        return _swap_chn(self.env.reset())
+
 
 def wrap_deepmind_ram(env):
     env = EpisodicLifeEnv(env)
@@ -179,7 +195,7 @@ def wrap_deepmind(env, phase="train"):
         env = ClippedRewardsWrapper(env)
     return env
 
-def wrap_rainbow(env, phase="train"):
+def wrap_rainbow(env, swap=False, phase="train"):
     assert 'NoFrameskip' in env.spec.id
     env = EpisodicLifeEnv(env)
     env = NoopResetEnv(env, noop_max=30)
@@ -189,16 +205,18 @@ def wrap_rainbow(env, phase="train"):
     env = StackAndSkipEnv(env, skip=4)
     if phase == "train":
         env = ClippedRewardsWrapper(env)
+    if swap == True:
+        env = SwapChn(env)
     return env    
 
 if __name__ == "__main__":
     import cv2
     env = gym.make("PongNoFrameskip-v4")
-    env = wrap_rainbow(env)
+    env = wrap_rainbow(env, swap=True)
     print(env.observation_space)
     ob = env.reset()
     for _ in range(100):
         ob, rw, done, _ = env.step(env.action_space.sample())
         print(ob.shape)
-        cv2.imshow("video", ob[:,:,0])
+        cv2.imshow("video", ob[0,:,:])
         cv2.waitKey(25)

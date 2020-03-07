@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from backbone import BasicNet
+from network.backbone import BasicNet
 
 def _init_weight(m):
     if isinstance(m, nn.Conv2d):
