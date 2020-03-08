@@ -20,9 +20,11 @@ class DQN(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.output = nn.Linear(512, na)
+        self.shape = shape
         self.apply(_init_weight)
 
     def forward(self, x):
+        # x.unsqueeze(0) if len(x.shape) == 3 else None
         assert x.shape[1:] == self.shape
         x = self.backbone(x)
         x = x.view(x.shape[0], -1)
@@ -31,11 +33,11 @@ class DQN(nn.Module):
         return x
 
     def action(self, x):
-        return self.forward(x).max(1, True)[1]
+        return self.forward(x).max(1)[1]
     
     def value(self, x, a=None):
-        assert a is None or a.shape == (x.shape[0], 1)
-        return self.forward(x).max(1, True)[0] if a is None else self.forward(x).gather(1, a)
+        assert a is None or a.shape == (x.shape[0],)
+        return self.forward(x).max(1)[0] if a is None else self.forward(x).gather(1, a.unsqueeze(1)).squeeze()
 
     def loss_fn(self, x, target):
         return F.smooth_l1_loss(x, target)
