@@ -24,20 +24,24 @@ class DQN(nn.Module):
         self.apply(_init_weight)
 
     def forward(self, x):
-        # x.unsqueeze(0) if len(x.shape) == 3 else None
-        assert x.shape[1:] == self.shape
+        usqz = True if x.ndim == len(self.shape) else False
+        x = x.unsqueeze(0) if x.ndim == len(self.shape) else x
+        assert x.shape[1:] == self.shape, "x.shape{}".format(tuple(x.shape))
         x = self.backbone(x)
         x = x.view(x.shape[0], -1)
         x = self.fc(x)
         x = self.output(x)
+        x = x.squeeze() if usqz else x
         return x
 
     def action(self, x):
-        return self.forward(x).max(1)[1]
+        x = self.forward(x)
+        return x.max(x.ndim-1)[1]
     
     def value(self, x, a=None):
-        assert a is None or a.shape == (x.shape[0],)
-        return self.forward(x).max(1)[0] if a is None else self.forward(x).gather(1, a.unsqueeze(1)).squeeze()
+        x = self.forward(x)
+        assert x.ndim == a.ndim+1, "x.ndim{} is not compatible with a.ndim{}".format(x.ndim, a.ndim)
+        return x.max(x.ndim-1)[0] if a is None else x.gather(x.ndim-1, a.unsqueeze(a.ndim)).squeeze(a.ndim)
 
     def loss_fn(self, x, target):
         return F.smooth_l1_loss(x, target)
