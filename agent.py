@@ -2,7 +2,9 @@ from network.backbone import BasicNet
 from network.dqn import DQN
 from atari_wrapper import wrap_rainbow
 import gym
+import torch
 import cv2
+import numpy as np
 import random
 
 """
@@ -45,7 +47,7 @@ class BasicWorker():
                 a = self._action()
                 next_ob, rw, done = self.step(a)
                 if self.debug:
-                    cv2.imshow("video", self.ob[:,:,0])
+                    cv2.imshow("video", self.ob[0,:,:])
                     cv2.waitKey(25)
                 cache.append({"state": self.ob, "action": a, "next_state": next_ob, "reward": rw, "done": done})
                 self.ob = next_ob
@@ -69,16 +71,23 @@ class BasicWorker():
 
 class DQN_Worker(BasicWorker):
     def __init__(self, env_name="PongNoFrameskip-v4", workid="work_{:0>2d}".format(0), 
-                arch=DQN, backbone=BasicNet,
+                arch=DQN, backbone=BasicNet, cuda=True,
                 output_interval=1000, max_steps=100000, phase="train", debug=False):
         super(DQN_Worker, self).__init__(env_name, workid, output_interval, max_steps, phase, debug)
         self.shape = self._shape()
         self.na = self._na()
         self.alg = arch(self.shape, self.na, backbone).eval()
-        self.alg.cuda()
+        self.alg.cuda() if cuda == True else None
+        self.cuda = cuda
 
     def _action(self):
-        raise NotImplementedError
+        with torch.no_grad():
+            ob = self.ob.astype(np.float32)
+            ob = torch.from_numpy(ob).cuda() if self.cuda else torch.from_numpy(ob)
+            return self.alg.action(ob).item()
+
+    def update(self, state_dict):
+        self.alg.load_state_dict(state_dict)
         
 
 
