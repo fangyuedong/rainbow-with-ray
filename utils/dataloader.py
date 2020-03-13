@@ -15,11 +15,11 @@ def pre_fetch_worker(dataset_actor, num, batch_size, worker_num=1):
     tsk_id = dataset_actor.sample.remote(num*batch_size, worker_num=worker_num)
     data = ray.get(tsk_id)
     data_split = [data[i:i+batch_size] for i in range(0, num*batch_size, batch_size)]
-    data = [{"state" : np.stack([x["state"] for x in item], axis=0).astype(np.float),
-        "action": np.stack([x["action"] for x in item], axis=0).astype(np.float),
-        "next_state": np.stack([x["next_state"] for x in item], axis=0).astype(np.float),
-        "reward": np.stack([x["reward"] for x in item], axis=0).astype(np.float),
-        "done": np.stack([x["done"] for x in item], axis=0).astype(np.float)} for item in data_split]
+    data = [{"state" : np.stack([x["state"] for x in item], axis=0),
+        "action": np.stack([x["action"] for x in item], axis=0),
+        "next_state": np.stack([x["next_state"] for x in item], axis=0),
+        "reward": np.stack([x["reward"] for x in item], axis=0),
+        "done": np.stack([x["done"] for x in item], axis=0)} for item in data_split]
 
     return data
 
