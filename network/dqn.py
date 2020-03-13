@@ -40,7 +40,7 @@ class DQN(nn.Module):
     
     def value(self, x, a=None):
         x = self.forward(x)
-        assert x.ndim == a.ndim+1, "x.ndim{} is not compatible with a.ndim{}".format(x.ndim, a.ndim)
+        assert a is None or x.ndim == a.ndim+1, "x.ndim{} is not compatible with a.ndim{}".format(x.ndim, a.ndim)
         return x.max(x.ndim-1)[0] if a is None else x.gather(x.ndim-1, a.unsqueeze(a.ndim)).squeeze(a.ndim)
 
     def loss_fn(self, x, target):
