@@ -48,8 +48,8 @@ class Optimizer():
             self.total_opt_steps += 1
             sum_loss += loss.item()
             self.update_target() if self.total_opt_steps % self.update_period == 0 else None
-            if i == period:
-                return self.total_opt_steps, sum_loss / i
+            if i == period - 1:
+                return self.total_opt_steps, sum_loss / (i + 1)
 
     def update_target(self):
         self.target.load_state_dict(self.policy.state_dict())
