@@ -5,7 +5,7 @@ import ray
 import random
 import numpy as np
 sys.path.append("./")
-from utils.replay_buffer import LmdbBuffer
+from utils.replay_buffer import lmdb_op
 from utils.dataloader import Dataloader
 from agent import BasicWorker
 from policy_optimizer import Optimizer
@@ -14,12 +14,13 @@ import torch
 class TestCase(unittest.TestCase):
     def test_convergence(self):
         exc_worker = BasicWorker()
-        buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
-        dataloader = Dataloader(buffer, batch_size=256, worker_num=1, batch_num=10, tsk_num=8)
+        buffer = "./ut_lmdb"
+        lmdb_op.init(buffer)
+        dataloader = Dataloader(buffer, lmdb_op, batch_size=256, worker_num=4, batch_num=10)
         opt = Optimizer(dataloader, iter_steps=10, update_period=1000)
         for i in range(20):
             traj = exc_worker.__next__()
-            ray.get(buffer.push.remote(traj))
+            lmdb_op.write(buffer, traj)
             print(i)
         start = time.time()
         for i, loss in opt:
@@ -27,7 +28,7 @@ class TestCase(unittest.TestCase):
             if i >= 10000:
                 break
         print("time: {}".format(time.time()-start))
-        buffer.clean.remote()
+        lmdb_op.clean(buffer)
             
 
     

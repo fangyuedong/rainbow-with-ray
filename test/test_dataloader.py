@@ -5,39 +5,38 @@ import ray
 import random
 import numpy as np
 sys.path.append("./")
-from utils.replay_buffer import LmdbBuffer
+from utils.replay_buffer import lmdb_op
 from utils.dataloader import Dataloader
 from agent import BasicWorker
+import torch
 
 class TestCase(unittest.TestCase):
-    #在setUp()方法中进行测试前的初始化工作。
-    def setUp(self):   
-        pass
 
-    #并在tearDown()方法中执行测试后的清除工作，setUp()和tearDown()都是TestCase类中定义的方法。
-    def tearDown(self):
-        pass
- 
     def test_1_worker(self):
         exc_worker = BasicWorker()
         print(exc_worker._shape())
-        buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
-        dataloader = Dataloader(buffer, batch_size=256, worker_num=1)
+        buffer = "./ut_lmdb"
+        lmdb_op.init(buffer)
+        dataloader = Dataloader(buffer, lmdb_op, batch_size=256, worker_num=4)
         for i in range(20):
             traj = exc_worker.__next__()
-            ray.get(buffer.push.remote(traj))
+            lmdb_op.write(buffer, traj)
             print(i)
         count = 0
-        start = time.time()
-        for _ in dataloader:
-            end = time.time()
-            print(end - start)
-            start = end
+        t0 = 0
+        for data in dataloader:
+            fd = data
+            t1 = time.time()
+            fd = {k: torch.from_numpy(v) for k, v in fd.items()}
+            t2 = time.time()
+            fd = {k: v.cuda().float() for k, v in fd.items()}
+            t3 = time.time()
+            print(t1-t0, t2-t1, t3-t2)
+            t0 = t3
             count += 1
-            time.sleep(0.2)
-            if count == 20:
+            if count == 100:
                 break
-        buffer.clean.remote()
+        lmdb_op.clean(buffer)
             
 
     

@@ -5,68 +5,54 @@ import ray
 import random
 import numpy as np
 sys.path.append("./")
-from utils.replay_buffer import LmdbBuffer
+from utils.replay_buffer import lmdb_op
 
 class TestCase(unittest.TestCase):
-    #在setUp()方法中进行测试前的初始化工作。
-    def setUp(self):   
-        pass
-
-    #并在tearDown()方法中执行测试后的清除工作，setUp()和tearDown()都是TestCase类中定义的方法。
-    def tearDown(self):
-        pass
- 
     def test_SerialInsert(self):
-        def worker(buffer, *txns):
-            time.sleep(1)
-            return buffer.push(*txns)
-        
         print("\n#Test: Serial Insert")
-        self.buffer = LmdbBuffer("./ut_lmdb")
+        lmdb_op.init("./ut_lmdb")
         start = time.time()
-        [worker(self.buffer, [i for _ in range(100)]) for i in range(10)]
+        [lmdb_op.write("./ut_lmdb", [i for _ in range(100)]) for i in range(10)]
         end = time.time()
         print("Time: {}".format(end - start))
-        data = self.buffer.sample(1000, shullfer=False)
+        data = lmdb_op.sample("./ut_lmdb", 1000, shullfer=False)
         target = []
         for i in range(10):
             target += [i for _ in range(100)]
         assert data == target, "data{} not equal target{}".format(data, target)
-        self.buffer.clean()
+        lmdb_op.clean("./ut_lmdb")
 
-    def test_ParallelInsert(self):
-        def worker(buffer, *txns):
-            time.sleep(1)
-            return ray.wait([buffer.push.remote(*txns)])
-        
+    def test_ParallelInsert(self):        
         print("\n#Test: Parallel Insert") 
-        self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
+        lmdb_op.init("./ut_lmdb")
         start = time.time()
-        task_ids = [ray.remote(worker).remote(self.buffer, [i for _ in range(100)]) for i in range(10)]
+        task_ids = [ray.remote(lmdb_op.write).remote("./ut_lmdb", [i for _ in range(100)]) for i in range(10)]
         ray.get(task_ids)
         end = time.time()
         print("Time: {}".format(end - start))
-        data = self.buffer.sample.remote(1000, shullfer=False)
-        data = ray.get(data)
+        data = lmdb_op.sample("./ut_lmdb", 1000, shullfer=False)
+        time.sleep(1)
         for i in range(10):
             x = np.array(data[100*i:100*(i+1)])
             assert np.linalg.norm(x - np.ones_like(x) * np.mean(x)) == 0
-        ray.wait([self.buffer.clean.remote()])
+        lmdb_op.clean("./ut_lmdb")
 
     def test_SimulatenouslyReadWrite(self):
-        def worker(buffer, *txns):
+        def worker(txns):
             time.sleep(random.randint(1,10)/500.0)
-            return ray.wait([buffer.push.remote(*txns)])
+            lmdb_op.write("./ut_lmdb", txns)
+            return
         
         print("\n#Test: Simulatenously Read Write") 
-        self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
-        write_tsks = [ray.remote(worker).remote(self.buffer, [i for _ in range(100)]) for i in range(10)]
+        lmdb_op.init("./ut_lmdb")
+        write_tsks = [ray.remote(worker).remote([i for _ in range(100)]) for i in range(10)]
         ray.wait(write_tsks)
         read_tsks = []
         for _ in range(10):
             time.sleep(0.002)
-            read_tsks.append(self.buffer.sample.remote(1000, 4, shullfer=False)) 
+            read_tsks.append(ray.remote(lmdb_op.sample).remote("./ut_lmdb", shullfer=False)) 
         data_list = ray.get(read_tsks)
+        time.sleep(1)
         for data in data_list:
             print(len(data))
             assert len(data) % 100 == 0
@@ -74,37 +60,7 @@ class TestCase(unittest.TestCase):
                 x = np.array(data[100*i:100*(i+1)])
                 assert np.linalg.norm(x - np.ones_like(x) * np.mean(x)) == 0
         ray.wait(write_tsks, num_returns=10)
-        ray.wait([self.buffer.clean.remote()])
-
-    def test_MultiprocessRead(self):
-        def worker(buffer, *txns):
-            time.sleep(1)
-            return ray.wait([buffer.push.remote(*txns)])
-        
-        print("\n#Test: Multiprocess Read") 
-        self.buffer = ray.remote(LmdbBuffer).remote("./ut_lmdb")
-        task_ids = [ray.remote(worker).remote(self.buffer, [i for _ in range(100)]) for i in range(10)]
-        ray.get(task_ids)
-        data = self.buffer.sample.remote(1000, worker_num=4, shullfer=False)
-        data = ray.get(data)
-        for i in range(10):
-            x = np.array(data[100*i:100*(i+1)])
-            assert np.linalg.norm(x - np.ones_like(x) * np.mean(x)) == 0
-        ray.wait([self.buffer.clean.remote()])
-
-    def test_TempSerialInsert(self):
-        def worker(buffer, *txns):
-            time.sleep(1)
-            return buffer.push(*txns)
-        
-        print("\n#Test: Temp Serial Insert")
-        self.buffer = LmdbBuffer("./ut_lmdb")
-        start = time.time()
-        worker(self.buffer, [1,1,1,1,1])
-        worker(self.buffer, [2,2,2,2,2])
-        end = time.time()
-        print("Time: {}".format(end - start))
-        self.buffer.clean()
+        lmdb_op.clean("./ut_lmdb")
 
     
  
@@ -113,11 +69,9 @@ class TestCase(unittest.TestCase):
 def suite():
     ray.init()
     suite = unittest.TestSuite()
-    suite.addTest(TestCase("test_TempSerialInsert"))
     suite.addTest(TestCase("test_SerialInsert"))
     suite.addTest(TestCase("test_ParallelInsert"))
     suite.addTest(TestCase("test_SimulatenouslyReadWrite"))
-    suite.addTest(TestCase("test_MultiprocessRead"))
     
     return suite
 
