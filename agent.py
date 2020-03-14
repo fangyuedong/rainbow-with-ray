@@ -21,7 +21,7 @@ class BasicWorker():
         self.max_steps = max_steps
         print("{}\t{}\tActions: {}".format(self.workid, self.env_name, self._na))
         self.ob = self.reset()
-        self.done = False
+        self.episod_rw = 0
         self.episod_len = 0
 
     def reset(self):
@@ -36,25 +36,26 @@ class BasicWorker():
         return self
 
     def __next__(self):
-        if self.done or self.episod_len >= self.max_steps:
+        done, count, cache = False, 0, []
+        while not done and count < self.output_interval and self.episod_len < self.max_steps:
+            a = self._action()
+            next_ob, rw, done = self.step(a)
+            if self.debug:
+                cv2.imshow("video", self.ob[0,:,:])
+                cv2.waitKey(25)
+            cache.append({"state": self.ob, "action": a, "next_state": next_ob, "reward": rw, "done": done})
+            self.ob = next_ob
+            self.episod_len += 1
+            self.episod_rw += rw
+            count += 1
+        if done or self.episod_len >= self.max_steps:
             self.ob = self.reset()
-            self.done = False
             self.episod_len = 0
-            return []
+            sum_rw = self.episod_rw
+            self.episod_rw = 0
+            return cache, sum_rw
         else:
-            done, count, cache = False, 0, []
-            while not done and count < self.output_interval and self.episod_len < self.max_steps:
-                a = self._action()
-                next_ob, rw, done = self.step(a)
-                if self.debug:
-                    cv2.imshow("video", self.ob[0,:,:])
-                    cv2.waitKey(25)
-                cache.append({"state": self.ob, "action": a, "next_state": next_ob, "reward": rw, "done": done})
-                self.ob = next_ob
-                self.episod_len += 1
-                count += 1
-            self.done = done
-            return cache
+            return cache, None
     
     def _action(self):
         return self.env.action_space.sample()
@@ -82,8 +83,7 @@ class DQN_Worker(BasicWorker):
 
     def _action(self):
         with torch.no_grad():
-            ob = self.ob.astype(np.float32)
-            ob = torch.from_numpy(ob).cuda() if self.cuda else torch.from_numpy(ob)
+            ob = torch.from_numpy(self.ob).cuda().float() if self.cuda else torch.from_numpy(self.ob).float()
             return self.alg.action(ob).item()
 
     def update(self, state_dict):
