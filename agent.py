@@ -1,23 +1,24 @@
 from network.backbone import BasicNet
 from network.dqn import DQN
 from atari_wrapper import wrap_rainbow
+import os
 import gym
 import torch
 import cv2
 import numpy as np
 import random
+import time
 
 """
 Transition = {"state": np.array, "action": int, "next_state": np.array, "reward": float, "done": logical}
 """
 
 class BasicWorker():
-    def __init__(self, env_name="PongNoFrameskip-v4", workid="work_{:0>2d}".format(0), output_interval=1000, max_steps=100000, phase="train", debug=False):
+    def __init__(self, env_name="PongNoFrameskip-v4", workid="work_{:0>2d}".format(0), output_interval=1000, max_steps=100000, phase="train"):
         self.env = wrap_rainbow(gym.make("PongNoFrameskip-v4"), swap=True, phase="train")
         self.workid = workid
         self.env_name = "PongNoFrameskip-v4"
         self.output_interval = output_interval
-        self.debug = debug
         self.max_steps = max_steps
         print("{}\t{}\tActions: {}".format(self.workid, self.env_name, self._na))
         self.ob = self.reset()
@@ -40,9 +41,6 @@ class BasicWorker():
         while not done and count < self.output_interval and self.episod_len < self.max_steps:
             a = self._action()
             next_ob, rw, done = self.step(a)
-            if self.debug:
-                cv2.imshow("video", self.ob[0,:,:])
-                cv2.waitKey(25)
             cache.append({"state": self.ob, "action": a, "next_state": next_ob, "reward": rw, "done": done})
             self.ob = next_ob
             self.episod_len += 1
@@ -69,25 +67,53 @@ class BasicWorker():
     def update(self):
         raise NotImplementedError
 
+    def save(self, video_path):
+        self.ob = self.reset()
+        self.episod_len = 0     
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        if not os.path.exists(video_path):
+            os.makedirs(video_path)        
+        out = cv2.VideoWriter(os.path.join(video_path, "video-{}.avi".format(time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()))),
+            fourcc, 25.0, (160,210))
+        acc_rw, done = 0, False
+        while not done and self.episod_len < self.max_steps:
+            a = self._action()
+            self.ob, rw, done = self.step(a)
+            acc_rw += rw
+            true_ob = self.env.render(mode="rgb_array")
+            out.write(true_ob)
+        out.release()   
+        self.ob = self.reset()
+        self.episod_len = 0
+        self.episod_rw = 0  
+
 
 class DQN_Worker(BasicWorker):
     def __init__(self, env_name="PongNoFrameskip-v4", workid="work_{:0>2d}".format(0), 
                 arch=DQN, backbone=BasicNet, cuda=True,
-                output_interval=1000, max_steps=100000, phase="train", debug=False):
-        super(DQN_Worker, self).__init__(env_name, workid, output_interval, max_steps, phase, debug)
+                output_interval=1000, max_steps=100000, phase="train"):
+        super(DQN_Worker, self).__init__(env_name, workid, output_interval, max_steps, phase)
         self.shape = self._shape()
         self.na = self._na()
         self.alg = arch(self.shape, self.na, backbone).eval()
         self.alg.cuda() if cuda == True else None
         self.cuda = cuda
+        self.eps = 0
 
     def _action(self):
         with torch.no_grad():
             ob = torch.from_numpy(self.ob).cuda().float() if self.cuda else torch.from_numpy(self.ob).float()
-            return self.alg.action(ob).item()
+            net_a = self.alg.action(ob).item()
+        rand_a = self.env.action_space.sample()
+        a = rand_a if random.random() < self.eps else net_a
+        return a
 
-    def update(self, state_dict):
-        self.alg.load_state_dict(state_dict)
+
+    def update(self, state_dict=None, eps=None):
+        if state_dict is not None:
+            self.alg.load_state_dict(state_dict)
+        if eps is not None:
+            self.eps = eps
         
 
 
