@@ -23,7 +23,7 @@ class Optimizer():
         self.target.load_state_dict(self.policy.state_dict())
         self.policy.cuda(), self.target.cuda() if cuda else None
 
-        kwargs.update({"lr": 1e-5}) if "lr" not in kwargs else None
+        kwargs.update({"lr": 1e-4}) if "lr" not in kwargs else None
         kwargs.update({"weight_decay": 5e-5}) if "weight_decay" not in kwargs else None
         self.optimizer = optimizer(self.policy.parameters(), **kwargs)
         self.iter_steps = iter_steps
@@ -41,8 +41,8 @@ class Optimizer():
         sum_loss = 0
         for i, data in enumerate(self.dataloader):
             data = {k: f(k, v) for k, v in data.items()}
-            self.optimizer.zero_grad()
             loss = self.loss_fn(**data)
+            self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
             self.total_opt_steps += 1
