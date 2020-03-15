@@ -17,9 +17,9 @@ class TestCase(unittest.TestCase):
         print(exc_worker._shape())
         buffer = "./ut_lmdb"
         lmdb_op.init(buffer)
-        dataloader = Dataloader(buffer, lmdb_op, batch_size=256, worker_num=4)
+        dataloader = Dataloader(buffer, lmdb_op, batch_size=256, worker_num=4, batch_num=10)
         for i in range(20):
-            traj = exc_worker.__next__()
+            traj, _ = exc_worker.__next__()
             lmdb_op.write(buffer, traj)
             print(i)
         count = 0
@@ -34,7 +34,7 @@ class TestCase(unittest.TestCase):
             print(t1-t0, t2-t1, t3-t2)
             t0 = t3
             count += 1
-            if count == 100:
+            if count == 1000:
                 break
         lmdb_op.clean(buffer)
             
