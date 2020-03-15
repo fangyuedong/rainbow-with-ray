@@ -14,14 +14,13 @@ Transition = {"state": np.array, "action": int, "next_state": np.array, "reward"
 """
 
 class BasicWorker():
-    def __init__(self, env_name="PongNoFrameskip-v4", workid="work_{:0>2d}".format(0), output_interval=1000, max_steps=100000, phase="train"):
+    def __init__(self, env_name="PongNoFrameskip-v4", output_interval=1000, max_steps=100000, phase="train"):
         self.env = wrap_rainbow(gym.make("PongNoFrameskip-v4"), swap=True, phase="train")
-        self.workid = workid
         self.env_name = "PongNoFrameskip-v4"
         self.output_interval = output_interval
         self.max_steps = max_steps
-        print("{}\t{}\tActions: {}".format(self.workid, self.env_name, self._na))
         self.ob = self.reset()
+        print("{}\tOb Space: {}\tActions: {}".format(self.env_name, self._shape(), self._na()))
         self.episod_rw = 0
         self.episod_len = 0
 
@@ -89,10 +88,9 @@ class BasicWorker():
 
 
 class DQN_Worker(BasicWorker):
-    def __init__(self, env_name="PongNoFrameskip-v4", workid="work_{:0>2d}".format(0), 
-                arch=DQN, backbone=BasicNet, cuda=True,
+    def __init__(self, env_name="PongNoFrameskip-v4", arch=DQN, backbone=BasicNet, cuda=True,
                 output_interval=1000, max_steps=100000, phase="train"):
-        super(DQN_Worker, self).__init__(env_name, workid, output_interval, max_steps, phase)
+        super(DQN_Worker, self).__init__(env_name, output_interval, max_steps, phase)
         self.shape = self._shape()
         self.na = self._na()
         self.alg = arch(self.shape, self.na, backbone).eval()
