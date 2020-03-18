@@ -9,14 +9,15 @@ import torch
 
 ray.init()
 
-env_name = "PongNoFrameskip-v4"
 n_worker = 1
+n_iter = 40
+env_name = "PongNoFrameskip-v4"
 buffer = "multi_workers_buffer"
 
 lmdb_op.init(buffer)
 workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name = "PongNoFrameskip-v4") for _ in range(n_worker)]
-dataloader = Dataloader(buffer, lmdb_op, worker_num=2, batch_size=64, batch_num=40)
-opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, iter_steps=40, update_period=10000)
+dataloader = Dataloader(buffer, lmdb_op, worker_num=6, batch_size=64, batch_num=40)
+opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, iter_steps=n_iter, update_period=10000)
 sche = Sched()
 eps = 1
 save_count = 0
@@ -76,10 +77,16 @@ def state_machine(tsk_dones, infos):
             raise NotImplementedError
 
 def run():
-    count = 0
+    count, iters, t0 = 0, 0, time.time()
     while 1:
         tsk_dones, infos = sche.wait()
         state_machine(tsk_dones, infos)
+        if infos[0].class_name == "Optimizer" and infos[0].method == "__next__":
+            iters += 1
+            if iters == 100:
+                t1 = time.time()
+                print("[sche] iter speed: {}/s".format(100*n_iter/(t1-t0)))
+                t0, iters = t1, 0
         if count % 100 == 0:
             print("[sche] runing tsks {} buff {}".format(len(sche), lmdb_op.len(buffer)))
             count = 0
