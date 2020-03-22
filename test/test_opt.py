@@ -5,7 +5,7 @@ import ray
 import random
 import numpy as np
 sys.path.append("./")
-from utils.replay_buffer import lmdb_op
+from utils.replay_buffer import mmdb_op as lmdb_op
 from utils.dataloader import Dataloader
 from agent import BasicWorker, DQN_Worker
 from policy_optimizer import Optimizer
@@ -14,8 +14,7 @@ import torch
 class TestCase(unittest.TestCase):
     def test_convergence(self):
         exc_worker = BasicWorker()
-        buffer = "./ut_lmdb_l"
-        lmdb_op.init(buffer)
+        buffer = lmdb_op.init("./ut_lmdb_l")
         dataloader = Dataloader(buffer, lmdb_op, batch_size=256, worker_num=3, batch_num=10)
         opt = Optimizer(dataloader, iter_steps=10, update_period=1000)
         for i in range(600):
@@ -28,12 +27,11 @@ class TestCase(unittest.TestCase):
             if i >= 10000:
                 break
         print("time: {}".format(time.time()-start))
-        # lmdb_op.clean(buffer)
+        lmdb_op.clean(buffer)
 
     def test_train(self):
         exc_worker = DQN_Worker()
-        buffer = "./ut_lmdb_l"
-        lmdb_op.init(buffer)
+        buffer = lmdb_op.init("./ut_lmdb_l")
         dataloader = Dataloader(buffer, lmdb_op, batch_size=64, worker_num=3, batch_num=40)
         opt = Optimizer(dataloader, iter_steps=400, update_period=10000)
         exc_worker.update(opt(), 1)

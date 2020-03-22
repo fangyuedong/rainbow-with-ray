@@ -5,52 +5,52 @@ import ray
 import random
 import numpy as np
 sys.path.append("./")
-from utils.replay_buffer import lmdb_op
+from utils.replay_buffer import mmdb_op as db_op
 
 class TestCase(unittest.TestCase):
     def test_SerialInsert(self):
         print("\n#Test: Serial Insert")
-        lmdb_op.init("./ut_lmdb")
+        db = db_op.init("./ut_lmdb")
         start = time.time()
-        [lmdb_op.write("./ut_lmdb", [i for _ in range(100)]) for i in range(10)]
+        [db_op.write(db, [i for _ in range(100)]) for i in range(10)]
         end = time.time()
         print("Time: {}".format(end - start))
-        data = lmdb_op.sample("./ut_lmdb", 1000, shullfer=False)
+        data = db_op.sample(db, 1000, shullfer=False)
         target = []
         for i in range(10):
             target += [i for _ in range(100)]
         assert data == target, "data{} not equal target{}".format(data, target)
-        lmdb_op.clean("./ut_lmdb")
+        db_op.clean(db)
 
     def test_ParallelInsert(self):        
         print("\n#Test: Parallel Insert") 
-        lmdb_op.init("./ut_lmdb")
+        db = db_op.init("./ut_lmdb")
         start = time.time()
-        task_ids = [ray.remote(lmdb_op.write).remote("./ut_lmdb", [i for _ in range(100)]) for i in range(10)]
+        task_ids = [ray.remote(db_op.write).remote(db, [i for _ in range(100)]) for i in range(10)]
         ray.get(task_ids)
         end = time.time()
         print("Time: {}".format(end - start))
-        data = lmdb_op.sample("./ut_lmdb", 1000, shullfer=False)
+        data = db_op.sample(db, 1000, shullfer=False)
         time.sleep(1)
         for i in range(10):
             x = np.array(data[100*i:100*(i+1)])
             assert np.linalg.norm(x - np.ones_like(x) * np.mean(x)) == 0
-        lmdb_op.clean("./ut_lmdb")
+        db_op.clean(db)
 
     def test_SimulatenouslyReadWrite(self):
-        def worker(txns):
+        def worker(db, txns):
             time.sleep(random.randint(1,10)/500.0)
-            lmdb_op.write("./ut_lmdb", txns)
+            db_op.write(db, txns)
             return
         
         print("\n#Test: Simulatenously Read Write") 
-        lmdb_op.init("./ut_lmdb")
-        write_tsks = [ray.remote(worker).remote([i for _ in range(100)]) for i in range(10)]
+        db = db_op.init("./ut_lmdb")
+        write_tsks = [ray.remote(worker).remote(db, [i for _ in range(100)]) for i in range(10)]
         ray.wait(write_tsks)
         read_tsks = []
         for _ in range(10):
             time.sleep(0.002)
-            read_tsks.append(ray.remote(lmdb_op.sample).remote("./ut_lmdb", shullfer=False)) 
+            read_tsks.append(ray.remote(db_op.sample).remote(db, shullfer=False)) 
         data_list = ray.get(read_tsks)
         time.sleep(1)
         for data in data_list:
@@ -60,7 +60,7 @@ class TestCase(unittest.TestCase):
                 x = np.array(data[100*i:100*(i+1)])
                 assert np.linalg.norm(x - np.ones_like(x) * np.mean(x)) == 0
         ray.wait(write_tsks, num_returns=10)
-        lmdb_op.clean("./ut_lmdb")
+        db_op.clean(db)
 
     
  
