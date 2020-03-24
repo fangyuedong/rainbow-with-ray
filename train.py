@@ -2,7 +2,7 @@ from schedule import Sched
 from agent import DQN_Worker
 from policy_optimizer import Optimizer
 from utils.dataloader import Dataloader
-from utils.replay_buffer import lmdb_op
+from utils.replay_buffer import mmdb_op as lmdb_op
 import ray
 import time
 import torch
@@ -14,13 +14,14 @@ n_iter = 40
 env_name = "PongNoFrameskip-v4"
 buffer = "multi_workers_buffer"
 
-lmdb_op.init(buffer)
-workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name = "PongNoFrameskip-v4") for _ in range(n_worker)]
-dataloader = Dataloader(buffer, lmdb_op, worker_num=6, batch_size=64, batch_num=40)
+buffer = lmdb_op.init(buffer)
+workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name = "PongNoFrameskip-v4", db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
+dataloader = Dataloader(buffer, lmdb_op, worker_num=3, batch_size=64, batch_num=40)
 opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, iter_steps=n_iter, update_period=10000)
 sche = Sched()
 eps = 1
 save_count = 0
+opt_start = False
 """
 class_name          method
 DQN_Worker          __next__
@@ -35,17 +36,20 @@ Optimizer           __call__
 def init():
     tsk_id = sche.add(opt, "__call__")
     [sche.add(worker, "update", state_dict=tsk_id, eps=eps) for worker in workers]
-    sche.wait(len(workers) + 1)
 
 def start():
     [sche.add(worker, "__next__") for worker in workers]
 
 def state_machine(tsk_dones, infos):
-    global eps, save_count
+    global eps, save_count, opt_start
+    if lmdb_op.len(buffer) > 100000 and opt_start == False:
+        eps = 0.05
+        print("[sche] start opt")
+        sche.add(opt, "__next__")
+        opt_start = True
     for tsk_done, info in zip(tsk_dones, infos):
         if info.class_name == "DQN_Worker" and info.method == "__next__":
-            data, rw = ray.get(tsk_done)
-            sche.add(None, lmdb_op.write, lmdb_path=buffer, data=data)
+            rw = ray.get(tsk_done)
             if rw is not None:
                 print("[sche] rw {}".format(rw))
                 tsk1 = sche.add(opt, "__call__")
@@ -60,11 +64,6 @@ def state_machine(tsk_dones, infos):
             sche.add(info.handle, "__next__")
         elif info.class_name == "DQN_Worker" and info.method == "save":
             pass
-        elif info.class_name == None and info.method == lmdb_op.write.__name__:
-            if lmdb_op.len(buffer) > 100000 and not sche.have(opt, "__next__"):
-                eps = 0.05
-                print("[sche] start opt")
-                sche.add(opt, "__next__")
         elif info.class_name == None and info.method == lmdb_op.len.__name__:
             pass
         elif info.class_name == "Optimizer" and info.method == "__next__":
