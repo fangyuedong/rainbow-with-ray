@@ -14,12 +14,13 @@ Transition = {"state": np.array, "action": int, "next_state": np.array, "reward"
 def pre_fetch_worker(work_func, dataset, num, batch_size):
     data = work_func(dataset, num*batch_size)
     data_split = [data[i:i+batch_size] for i in range(0, num*batch_size, batch_size)]
+    data.clear()
     data = [{"state" : np.stack([x["state"] for x in item], axis=0),
         "action": np.stack([x["action"] for x in item], axis=0),
         "next_state": np.stack([x["next_state"] for x in item], axis=0),
         "reward": np.stack([x["reward"] for x in item], axis=0),
         "done": np.stack([x["done"] for x in item], axis=0)} for item in data_split]
-
+    data_split.clear()
     return data
 
 # class Dataloader():

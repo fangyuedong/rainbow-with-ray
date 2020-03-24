@@ -6,6 +6,7 @@ RayTsk = namedtuple('RayTsk', ['handle', 'method', 'params', 'class_name'])
 class Sched():
     def __init__(self):
         self.tsk_info = {}
+        self.remote_func = {}
 
     def add(self, actor=None, method=None, **kwargs):
         # exec some class method
@@ -13,12 +14,12 @@ class Sched():
             tsk_id = getattr(actor, method).remote(**kwargs)
             self.tsk_info[tsk_id] = RayTsk(actor, method, None, 
                 actor._ray_actor_creation_function_descriptor.class_name)
-            # print("start\t{}.{}({})".format(actor, method, None))
         # exec some func
         elif callable(method) and actor is None:
-            tsk_id = ray.remote(method).remote(**kwargs)
+            if method not in self.remote_func:
+                self.remote_func[method] = ray.remote(method)
+            tsk_id = self.remote_func[method].remote(**kwargs)
             self.tsk_info[tsk_id] = RayTsk(actor, method.__name__, None, None)
-            # print("start\t{}.{}({})".format(actor, method.__name__, None))
         else:
             raise NotImplementedError
         return tsk_id
