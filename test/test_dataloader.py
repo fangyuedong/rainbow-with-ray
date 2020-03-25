@@ -5,7 +5,7 @@ import ray
 import random
 import numpy as np
 sys.path.append("./")
-from utils.replay_buffer import lmdb_op
+from utils.replay_buffer import mmdb_op as lmdb_op
 from utils.dataloader import Dataloader
 from agent import BasicWorker
 import torch
@@ -13,29 +13,23 @@ import torch
 class TestCase(unittest.TestCase):
 
     def test_1_worker(self):
-        exc_worker = BasicWorker()
-        print(exc_worker._shape())
         buffer = "./ut_lmdb"
-        lmdb_op.init(buffer)
+        buffer = lmdb_op.init(buffer)
+        exc_worker = BasicWorker(db=buffer, db_write=lmdb_op.write)
         dataloader = Dataloader(buffer, lmdb_op, batch_size=256, worker_num=4, batch_num=10)
-        for i in range(20):
-            traj, _ = exc_worker.__next__()
-            lmdb_op.write(buffer, traj)
-            print(i)
+        for _ in range(20):
+            _ = exc_worker.__next__()
+            print(lmdb_op.len(buffer))
         count = 0
-        t0 = 0
+        t0 = time.time()
         for data in dataloader:
             fd = data
-            t1 = time.time()
             fd = {k: torch.from_numpy(v) for k, v in fd.items()}
-            t2 = time.time()
             fd = {k: v.cuda().float() for k, v in fd.items()}
-            t3 = time.time()
-            print(t1-t0, t2-t1, t3-t2)
-            t0 = t3
             count += 1
             if count == 1000:
                 break
+        print(time.time() - t0)
         lmdb_op.clean(buffer)
             
 
