@@ -9,6 +9,7 @@ from utils.replay_buffer import mmdb_op as lmdb_op
 from utils.dataloader import Dataloader
 from agent import BasicWorker
 import torch
+import gc
 
 class TestCase(unittest.TestCase):
 
@@ -16,19 +17,22 @@ class TestCase(unittest.TestCase):
         buffer = "./ut_lmdb"
         buffer = lmdb_op.init(buffer)
         exc_worker = BasicWorker(db=buffer, db_write=lmdb_op.write)
-        dataloader = Dataloader(buffer, lmdb_op, batch_size=256, worker_num=4, batch_num=10)
+        dataloader = Dataloader(buffer, lmdb_op, batch_size=64, worker_num=4, batch_num=40)
         for _ in range(20):
             _ = exc_worker.__next__()
             print(lmdb_op.len(buffer))
         count = 0
         t0 = time.time()
         for data in dataloader:
-            fd = data
-            fd = {k: torch.from_numpy(v) for k, v in fd.items()}
+            fd = {k: torch.from_numpy(v) for k, v in data.items()}
             fd = {k: v.cuda().float() for k, v in fd.items()}
+            # data.clear()
+            # fd.clear()
+            # del fd, data
+            # gc.collect()
             count += 1
-            if count == 1000:
-                break
+            # if count == 4000:
+            #     break
         print(time.time() - t0)
         lmdb_op.clean(buffer)
             
