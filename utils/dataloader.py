@@ -43,11 +43,7 @@ class Dataloader():
             tsk_dones, self.tsks = ray.wait(self.tsks)
             assert len(tsk_dones) == 1
             self.cache = ray.get(tsk_dones[0])
-            data = self.cache[0]
-            self.cache.pop(0)
-            return data
+            return self.cache.pop(0)
         else:
-            data = self.cache[0]
-            self.cache.pop(0)
-            return data        
+            return self.cache.pop(0)        
 

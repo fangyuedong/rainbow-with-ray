@@ -22,7 +22,7 @@ class BasicWorker():
         self.max_steps = max_steps
         self.db = db
         self.db_write = db_write
-        # self.fetch = None
+        self.write = lambda x: self.db_write(self.db, x) if db and db_write else None
         self.ob = self.reset()
         print("{}\tOb Space: {}\tActions: {}".format(self.env_name, self._shape(), self._na()))
 
@@ -48,9 +48,9 @@ class BasicWorker():
             episod_len += 1
             episod_rw += rw
             if episod_len % self.save_interval == 0:
-                self.db_write(self.db, cache)
+                self.write(cache)
                 cache.clear()
-        self.db_write(self.db, cache)
+        self.write(cache)
         return episod_rw
     
     # def traj(self):

@@ -14,11 +14,8 @@ class TestCase(unittest.TestCase):
             worker = DQN_Worker()
             worker.update(None, 1)
             for _ in range(4):
-                data,_ = next(worker)
+                _ = next(worker)
                 worker.save("./video")
-                # for item in data:
-                #     cv2.imshow("video", item["state"][0,:,:])
-                #     cv2.waitKey(10)
 
 
 def suite():
