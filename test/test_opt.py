@@ -19,19 +19,19 @@ class TestCase(unittest.TestCase):
         dataloader = Dataloader(buffer, db_op, batch_size=64, worker_num=3, batch_num=40)
         opt = Optimizer(dataloader, iter_steps=400, update_period=10000)
         exc_worker.update(opt(), 1)
-        count, n_step = 0, 0
+        count = 0
         while 1:
-            rw = next(exc_worker)
-            if rw is not None:
+            wk_info = next(exc_worker)
+            if wk_info is not None:
                 exc_worker.save("./train_video") if count % 100 == 0 else None
-                print("worker reward: {} @ episod {}".format(rw, count))
+                print("worker reward: {} @ episod {}".format(wk_info["episod_rw"], count))
                 count += 1
             if db_op.len(buffer) >= 10000:
-                n_step, loss = next(opt)
-                print("loss {} @ step {} with buff {}".format(loss, n_step, db_op.len(buffer)))
+                opt_info = next(opt)
+                print("loss {} @ step {} with buff {}".format(opt_info["loss"], opt_info["opt_steps"], db_op.len(buffer)))
                 exc_worker.update(opt(), 0.05)
-            if n_step == 10000:
-                break
+                if opt_info["opt_steps"] == 10000:
+                    break
         db_op.clean(buffer)
             
 

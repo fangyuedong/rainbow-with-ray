@@ -6,22 +6,24 @@ from utils.replay_buffer import mmdb_op as lmdb_op
 import ray
 import time
 import torch
-
-ray.init()
+from tensorboardX import SummaryWriter
 
 n_worker = 1
 n_iter = 40
+n_loader = 3
 env_name = "PongNoFrameskip-v4"
 buffer = "multi_workers_buffer"
+ray.init(num_cpus=1+n_worker+n_loader)
 
 buffer = lmdb_op.init(buffer)
 workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name = "PongNoFrameskip-v4", db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
-dataloader = Dataloader(buffer, lmdb_op, worker_num=3, batch_size=64, batch_num=40)
+dataloader = Dataloader(buffer, lmdb_op, worker_num=n_loader, batch_size=64, batch_num=n_iter)
 opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, iter_steps=n_iter, update_period=10000)
 sche = Sched()
 eps = 1
 save_count = 0
 opt_start = False
+glog = SummaryWriter("./logdir", filename_suffix="PongNoFrameskip-v4")
 """
 class_name          method
 DQN_Worker          __next__
@@ -49,17 +51,15 @@ def state_machine(tsk_dones, infos):
         opt_start = True
     for tsk_done, info in zip(tsk_dones, infos):
         if info.class_name == "DQN_Worker" and info.method == "__next__":
-            rw = ray.get(tsk_done)
-            if rw is not None:
-                print("[sche] rw {}".format(rw))
-                tsk1 = sche.add(opt, "__call__")
-                sche.add(info.handle, "update", state_dict=tsk1, eps=eps)
-                save_count += 1
-                if save_count == 100:
-                    save_count = 0
-                    sche.add(info.handle, "save", video_path="./train_video")
-            else:
-                sche.add(info.handle, "__next__")
+            wk_info = ray.get(tsk_done)
+            tsk1 = sche.add(opt, "__call__")
+            sche.add(info.handle, "update", state_dict=tsk1, eps=eps)
+            save_count += 1
+            if save_count == 100:
+                save_count = 0
+                sche.add(info.handle, "save", video_path="./train_video")
+            print("[sche] rw {}".format(wk_info["episod_rw"]))
+            glog.add_scalar("rw/{}".format(id(info.handle)), wk_info["episod_rw"], wk_info["total_env_steps"])
         elif info.class_name == "DQN_Worker" and info.method == "update":
             sche.add(info.handle, "__next__")
         elif info.class_name == "DQN_Worker" and info.method == "save":
@@ -67,9 +67,10 @@ def state_machine(tsk_dones, infos):
         elif info.class_name == None and info.method == lmdb_op.len.__name__:
             pass
         elif info.class_name == "Optimizer" and info.method == "__next__":
-            n_step, loss = ray.get(tsk_done)
-            print("[sche] loss: {} @ step {}".format(loss, n_step))
+            opt_info = ray.get(tsk_done)
             sche.add(info.handle, "__next__")
+            print("[sche] loss: {} @ step {}".format(opt_info["loss"], opt_info["opt_steps"]))
+            glog.add_scalar("loss", opt_info["loss"], opt_info["opt_steps"])
         elif info.class_name == "Optimizer" and info.method == "__call__":
             pass
         else:

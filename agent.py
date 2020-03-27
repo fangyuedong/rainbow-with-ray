@@ -24,6 +24,7 @@ class BasicWorker():
         self.db_write = db_write
         self.write = lambda x: self.db_write(self.db, x) if db and db_write else None
         self.ob = self.reset()
+        self.info = {}
         print("{}\tOb Space: {}\tActions: {}".format(self.env_name, self._shape(), self._na()))
 
     def reset(self):
@@ -51,8 +52,14 @@ class BasicWorker():
                 self.write(cache)
                 cache.clear()
         self.write(cache)
-        return episod_rw
-    
+        self.info["episod_rw"] = episod_rw
+        self.info["episod_len"] = episod_len
+        if "total_env_steps" in self.info:
+            self.info["total_env_steps"] += episod_len
+        else:
+            self.info["total_env_steps"] = episod_len
+        return self.info
+     
     # def traj(self):
     #     return self.fetch
     
