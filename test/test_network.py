@@ -5,7 +5,7 @@ import torch
 import numpy as np
 sys.path.append("./")
 from network.dqn import DQN
-from atari_wrapper import wrap_rainbow
+from utils.atari_wrapper import wrap_rainbow
 
 class TestCase(unittest.TestCase):
  

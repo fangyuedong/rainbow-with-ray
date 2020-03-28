@@ -1,14 +1,14 @@
-from network.backbone import BasicNet
-from network.dqn import DQN
-from atari_wrapper import wrap_rainbow
-import os
+import os, sys
 import gym
 import torch
 import cv2
 import numpy as np
 import random
 import time
-import gc
+sys.path.append("./")
+from network.backbone import BasicNet
+from network.dqn import DQN
+from utils.atari_wrapper import wrap_rainbow
 """
 Transition = {"state": np.array, "action": int, "next_state": np.array, "reward": float, "done": logical}
 """

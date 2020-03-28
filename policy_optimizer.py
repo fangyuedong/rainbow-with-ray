@@ -1,10 +1,11 @@
 import torch
 import gym
 import cv2
+sys.path.append("./")
 from network.backbone import BasicNet
 from network.dqn import DQN
 from utils.dataloader import Dataloader
-from atari_wrapper import wrap_rainbow
+from utils.atari_wrapper import wrap_rainbow
 
 """
 Transition = {"state": np.array, "action": int, "next_state": np.array, "reward": float, "done": logical}
