@@ -1,3 +1,4 @@
+import sys
 import torch
 import gym
 import cv2
@@ -69,3 +70,25 @@ class Optimizer():
     def __call__(self):
         """return policy params"""
         return self.policy.state_dict()
+
+class DQN_Opt(Optimizer):
+    def __init__(self, dataloader, env_name="PongNoFrameskip-v4", arch=DQN, backbone=BasicNet, 
+        discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
+        super(DQN_Opt, self).__init__(dataloader, env_name, arch, backbone, 
+            discount, update_period, iter_steps, cuda, optimizer, **kwargs)
+
+
+class DDQN_Opt(DQN_Opt):
+    def __init__(self, dataloader, env_name="PongNoFrameskip-v4", arch=DQN, backbone=BasicNet, 
+        discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
+        super(DDQN_Opt, self).__init__(dataloader, env_name, arch, backbone, 
+            discount, update_period, iter_steps, cuda, optimizer, **kwargs) 
+
+    def loss_fn(self, state, action, next_state, reward, done):
+        with torch.no_grad():
+            act = self.policy.action(next_state)
+            target = self.discount * self.target.value(next_state, act) * (1 - done) + reward
+        q_fn = self.policy.value(state, action)
+        assert q_fn.shape == target.shape
+        loss = self.policy.loss_fn(q_fn, target)
+        return loss

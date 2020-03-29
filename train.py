@@ -1,6 +1,6 @@
 from schedule import Sched
 from agent import DQN_Worker
-from policy_optimizer import Optimizer
+from policy_optimizer import DDQN_Opt as Optimizer
 from utils.dataloader import Dataloader
 from utils.replay_buffer import mmdb_op as lmdb_op
 import ray
@@ -23,7 +23,7 @@ sche = Sched()
 eps = 1
 save_count = 0
 opt_start = False
-glog = SummaryWriter("./logdir", filename_suffix="PongNoFrameskip-v4")
+glog = SummaryWriter("./logdir/DDQN", filename_suffix="PongNoFrameskip-v4")
 """
 class_name          method
 DQN_Worker          __next__
@@ -66,12 +66,12 @@ def state_machine(tsk_dones, infos):
             pass
         elif info.class_name == None and info.method == lmdb_op.len.__name__:
             pass
-        elif info.class_name == "Optimizer" and info.method == "__next__":
+        elif info.class_name == Optimizer.__name__ and info.method == "__next__":
             opt_info = ray.get(tsk_done)
             sche.add(info.handle, "__next__")
             print("[sche] loss: {} @ step {}".format(opt_info["loss"], opt_info["opt_steps"]))
             glog.add_scalar("loss", opt_info["loss"], opt_info["opt_steps"])
-        elif info.class_name == "Optimizer" and info.method == "__call__":
+        elif info.class_name == Optimizer.__name__ and info.method == "__call__":
             pass
         else:
             raise NotImplementedError
@@ -81,7 +81,7 @@ def run():
     while 1:
         tsk_dones, infos = sche.wait()
         state_machine(tsk_dones, infos)
-        if infos[0].class_name == "Optimizer" and infos[0].method == "__next__":
+        if infos[0].class_name == Optimizer.__name__ and infos[0].method == "__next__":
             iters += 1
             if iters == 100:
                 t1 = time.time()
