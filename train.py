@@ -18,7 +18,7 @@ ray.init(num_cpus=1+n_worker+n_loader)
 buffer = lmdb_op.init(buffer)
 workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name = "PongNoFrameskip-v4", db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
 dataloader = Dataloader(buffer, lmdb_op, worker_num=n_loader, batch_size=64, batch_num=n_iter)
-opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, iter_steps=n_iter, update_period=10000)
+opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, duplicate=4, iter_steps=n_iter, update_period=10000)
 sche = Sched()
 eps = 1
 save_count = 0

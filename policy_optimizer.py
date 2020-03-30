@@ -14,15 +14,17 @@ Transition = {"state": np.array, "action": int, "next_state": np.array, "reward"
 f = lambda k, x: torch.from_numpy(x).cuda().float() if k != "action" else torch.from_numpy(x).cuda()
 
 class Optimizer():
-    def __init__(self, dataloader, env_name="PongNoFrameskip-v4", arch=DQN, backbone=BasicNet, 
+    def __init__(self, dataloader, env_name="PongNoFrameskip-v4", arch=DQN, duplicate=1, backbone=BasicNet, 
         discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
         assert isinstance(dataloader, Dataloader)
         self.dataloader = dataloader
         self.env = wrap_rainbow(gym.make("PongNoFrameskip-v4"), swap=True, phase="train")
         self.shape, self.na = self.env.observation_space.shape, self.env.action_space.n
         self.policy = arch(self.shape, self.na, backbone).train()
-        self.target = arch(self.shape, self.na, backbone).train()
-        self.target.load_state_dict(self.policy.state_dict())
+        self.target = arch(self.shape, self.na, backbone, duplicate).train()
+        self.duplicate = duplicate
+        # self.target.load_state_dict(self.policy.state_dict())
+        self.update_target()
         self.policy.cuda(), self.target.cuda() if cuda else None
 
         kwargs.update({"lr": 1e-4}) if "lr" not in kwargs else None
@@ -50,14 +52,16 @@ class Optimizer():
             self.optimizer.step()
             self.total_opt_steps += 1
             sum_loss += loss.item()
-            self.update_target() if self.total_opt_steps % self.update_period == 0 else None
+            self.update_target(self.total_opt_steps // self.update_period % self.duplicate) \
+                if self.total_opt_steps % self.update_period == 0 else None
             if i == period - 1:
                 self.info["opt_steps"] = self.total_opt_steps
                 self.info["loss"] = sum_loss / (i+1)
                 return self.info
 
-    def update_target(self):
-        self.target.load_state_dict(self.policy.state_dict())
+    def update_target(self, idx=None):
+        # self.target.load_state_dict(self.policy.state_dict())
+        self.target.assign(self.policy.get_state(), idx)
 
     def loss_fn(self, state, action, next_state, reward, done):
         with torch.no_grad():
@@ -72,16 +76,16 @@ class Optimizer():
         return self.policy.state_dict()
 
 class DQN_Opt(Optimizer):
-    def __init__(self, dataloader, env_name="PongNoFrameskip-v4", arch=DQN, backbone=BasicNet, 
+    def __init__(self, dataloader, env_name="PongNoFrameskip-v4", arch=DQN, duplicate=1, backbone=BasicNet, 
         discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
-        super(DQN_Opt, self).__init__(dataloader, env_name, arch, backbone, 
+        super(DQN_Opt, self).__init__(dataloader, env_name, arch, duplicate, backbone, 
             discount, update_period, iter_steps, cuda, optimizer, **kwargs)
 
 
 class DDQN_Opt(DQN_Opt):
-    def __init__(self, dataloader, env_name="PongNoFrameskip-v4", arch=DQN, backbone=BasicNet, 
+    def __init__(self, dataloader, env_name="PongNoFrameskip-v4", arch=DQN, duplicate=1, backbone=BasicNet, 
         discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
-        super(DDQN_Opt, self).__init__(dataloader, env_name, arch, backbone, 
+        super(DDQN_Opt, self).__init__(dataloader, env_name, arch, duplicate, backbone, 
             discount, update_period, iter_steps, cuda, optimizer, **kwargs) 
 
     def loss_fn(self, state, action, next_state, reward, done):

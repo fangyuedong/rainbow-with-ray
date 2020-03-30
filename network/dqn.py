@@ -11,9 +11,9 @@ def _init_weight(m):
         torch.nn.init.xavier_uniform_(m.weight.data)
         torch.nn.init.constant_(m.bias.data, 0)
 
-class DQN(nn.Module):
+class _DQN(nn.Module):
     def __init__(self, shape, na, backbone=BasicNet):
-        super(DQN, self).__init__()
+        super(_DQN, self).__init__()
         self.backbone = backbone(shape, na)
         self.fc = nn.Sequential(
             nn.Linear(self.backbone._feature_size(), 512),
@@ -45,4 +45,41 @@ class DQN(nn.Module):
 
     def loss_fn(self, x, target):
         return F.smooth_l1_loss(x, target)
+
+
+class DQN(nn.Module):
+    def __init__(self, shape, na, backbone=BasicNet, duplicate=1):
+        super(DQN, self).__init__()
+        assert isinstance(duplicate, int) and duplicate > 0
+        self.duplicate = duplicate
+        [self.add_module("net{}".format(i), _DQN(shape, na, backbone)) for i in range(duplicate)]
+        self.duplicate_nets = [getattr(self, "net{}".format(i)) for i in range(duplicate)]
+
+    def forward(self, x):    
+        return sum([net.forward(x) for net in self.duplicate_nets]) / self.duplicate
+
+    def action(self, x):
+        x = self.forward(x)
+        return x.max(x.ndim-1)[1]
     
+    def value(self, x, a=None):
+        x = self.forward(x)
+        assert a is None or x.ndim == a.ndim+1, "x.ndim{} is not compatible with a.ndim{}".format(x.ndim, a.ndim)
+        return x.max(x.ndim-1)[0] if a is None else x.gather(x.ndim-1, a.unsqueeze(a.ndim)).squeeze(a.ndim)
+
+    def loss_fn(self, x, target):
+        return F.smooth_l1_loss(x, target)    
+
+    def assign(self, state_dict, idx=None):
+        if idx == None:
+            [net.load_state_dict(state_dict) for net in self.duplicate_nets]
+        else:
+            assert isinstance(idx, int) and idx < self.duplicate
+            self.duplicate_nets[idx].load_state_dict(state_dict)
+
+    def get_state(self):
+        assert self.duplicate == 1
+        return self.duplicate_nets[0].state_dict()
+
+    
+
