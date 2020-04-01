@@ -80,12 +80,13 @@ class BasicWorker():
 
     def save(self, video_path):
         self.ob = self.reset()
+        true_ob = self.env.render(mode="rgb_array")
         episod_len = 0     
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
         if not os.path.exists(video_path):
             os.makedirs(video_path)        
         out = cv2.VideoWriter(os.path.join(video_path, "video-{}.avi".format(time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()))),
-            fourcc, 25.0, (160,210))
+            fourcc, 25.0, (true_ob.shape[1], true_ob.shape[0]))
         acc_rw, done = 0, False
         while not done and episod_len < self.max_steps:
             a = self._action()
