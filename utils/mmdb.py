@@ -4,7 +4,7 @@ import gzip
 import pickle as pkl
 
 class Mmdb():
-    def __init__(self, cap=1000000, memory_limit=1024**3, mm_count=None):
+    def __init__(self, cap=1000000, memory_limit=3*1024**3, mm_count=None):
         self.cap = cap
         self.mm_limit = memory_limit
         self.tail = 0

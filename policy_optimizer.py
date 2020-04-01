@@ -18,7 +18,7 @@ class Optimizer():
         discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
         assert isinstance(dataloader, Dataloader)
         self.dataloader = dataloader
-        self.env = wrap_rainbow(gym.make("PongNoFrameskip-v4"), swap=True, phase="train")
+        self.env = wrap_rainbow(gym.make(env_name), swap=True, phase="train")
         self.shape, self.na = self.env.observation_space.shape, self.env.action_space.n
         self.policy = arch(self.shape, self.na, backbone).train()
         self.target = arch(self.shape, self.na, backbone).train()

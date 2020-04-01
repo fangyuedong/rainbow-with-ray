@@ -16,8 +16,8 @@ Transition = {"state": np.array, "action": int, "next_state": np.array, "reward"
 class BasicWorker():
     def __init__(self, env_name="PongNoFrameskip-v4", save_interval=1000, max_steps=100000, 
         phase="train", db=None, db_write=None):
-        self.env = wrap_rainbow(gym.make("PongNoFrameskip-v4"), swap=True, phase="train")
-        self.env_name = "PongNoFrameskip-v4"
+        self.env = wrap_rainbow(gym.make(env_name), swap=True, phase="train")
+        self.env_name = env_name
         self.save_interval = save_interval
         self.max_steps = max_steps
         self.db = db
@@ -32,27 +32,30 @@ class BasicWorker():
         return self.env.reset()
 
     def step(self, a):
-        next_ob, rw, done, _ = self.env.step(a)
-        return next_ob, rw, done
+        next_ob, rw, done, info = self.env.step(a)
+        return next_ob, rw, done, info
 
     def __iter__(self):
         return self
 
     def __next__(self):
         self.ob = self.reset()
-        done, episod_len, episod_rw, cache = False, 0, 0, []
+        done, episod_len, episod_rw, episod_real_rw, cache = False, 0, 0, 0, []
         while not done and episod_len < self.max_steps:
             a = self._action()
-            next_ob, rw, done = self.step(a)
+            next_ob, rw, done, info = self.step(a)
             cache.append({"state": self.ob, "action": a, "next_state": next_ob, "reward": rw, "done": done})
             self.ob = next_ob
             episod_len += 1
             episod_rw += rw
+            episod_real_rw += info["reward"]
             if episod_len % self.save_interval == 0:
                 self.write(cache)
                 cache.clear()
         self.write(cache)
+        cache.clear()
         self.info["episod_rw"] = episod_rw
+        self.info["episod_real_rw"] = episod_real_rw
         self.info["episod_len"] = episod_len
         if "total_env_steps" in self.info:
             self.info["total_env_steps"] += episod_len
@@ -86,7 +89,7 @@ class BasicWorker():
         acc_rw, done = 0, False
         while not done and episod_len < self.max_steps:
             a = self._action()
-            self.ob, rw, done = self.step(a)
+            self.ob, rw, done, _ = self.step(a)
             acc_rw += rw
             episod_len += 1
             true_ob = self.env.render(mode="rgb_array")

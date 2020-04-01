@@ -156,6 +156,7 @@ class ProcessFrame84(gym.Wrapper):
 class ClippedRewardsWrapper(gym.Wrapper):
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
+        info["reward"] = reward
         return obs, np.sign(reward), done, info
 
 def _swap_chn(ob):

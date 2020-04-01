@@ -11,19 +11,21 @@ from tensorboardX import SummaryWriter
 n_worker = 1
 n_iter = 40
 n_loader = 3
-env_name = "PongNoFrameskip-v4"
+env_name = "AsterixNoFrameskip-v4"
 buffer = "multi_workers_buffer"
-ray.init(num_cpus=1+n_worker+n_loader)
+ray.init(num_cpus=1+n_worker+n_loader, object_store_memory=2*1024**3)
 
 buffer = lmdb_op.init(buffer)
-workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name = "PongNoFrameskip-v4", db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
+workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
+worker_id = {worker: "worker_{}".format(i) for i, worker in enumerate(workers)}
 dataloader = Dataloader(buffer, lmdb_op, worker_num=n_loader, batch_size=64, batch_num=n_iter)
 opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, iter_steps=n_iter, update_period=10000)
 sche = Sched()
 eps = 1
 save_count = 0
 opt_start = False
-glog = SummaryWriter("./logdir/DDQN", filename_suffix="PongNoFrameskip-v4")
+glog = SummaryWriter("./logdir/{}/{}".format(env_name, Optimizer.__name__), filename_suffix=env_name)
+
 """
 class_name          method
 DQN_Worker          __next__
@@ -59,7 +61,8 @@ def state_machine(tsk_dones, infos):
                 save_count = 0
                 sche.add(info.handle, "save", video_path="./train_video")
             print("[sche] rw {}".format(wk_info["episod_rw"]))
-            glog.add_scalar("rw/{}".format(id(info.handle)), wk_info["episod_rw"], wk_info["total_env_steps"])
+            glog.add_scalar("rw/{}".format(worker_id[info.handle]), wk_info["episod_rw"], wk_info["total_env_steps"])
+            glog.add_scalar("real_rw/{}".format(worker_id[info.handle]), wk_info["episod_real_rw"], wk_info["total_env_steps"])
         elif info.class_name == "DQN_Worker" and info.method == "update":
             sche.add(info.handle, "__next__")
         elif info.class_name == "DQN_Worker" and info.method == "save":
