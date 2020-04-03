@@ -42,7 +42,7 @@ class BasicWorker():
         self.ob = self.reset()
         done, episod_len, episod_rw, episod_real_rw, cache = False, 0, 0, 0, []
         while not done and episod_len < self.max_steps:
-            a = self._action()
+            a = self._action(eps=.0)
             next_ob, rw, done, info = self.step(a)
             cache.append({"state": self.ob, "action": a, "next_state": next_ob, "reward": rw, "done": done})
             self.ob = next_ob
@@ -66,7 +66,7 @@ class BasicWorker():
     # def traj(self):
     #     return self.fetch
     
-    def _action(self):
+    def _action(self, eps=None):
         return self.env.action_space.sample()
 
     def _shape(self):
@@ -87,16 +87,22 @@ class BasicWorker():
             os.makedirs(video_path)        
         out = cv2.VideoWriter(os.path.join(video_path, "video-{}.avi".format(time.strftime("%Y-%m-%d_%H:%M:%S", time.localtime()))),
             fourcc, 25.0, (true_ob.shape[1], true_ob.shape[0]))
-        acc_rw, done = 0, False
+        acc_rw, real_acc_rw, done = 0, 0, False
         while not done and episod_len < self.max_steps:
             a = self._action()
-            self.ob, rw, done, _ = self.step(a)
+            self.ob, rw, done, info = self.step(a)
             acc_rw += rw
             episod_len += 1
+            real_acc_rw += info["reward"]
             true_ob = self.env.render(mode="rgb_array")
             out.write(true_ob)
         out.release()   
         self.ob = self.reset()
+        self.info["episod_rw"] = acc_rw
+        self.info["episod_real_rw"] = real_acc_rw
+        self.info["episod_len"] = episod_len
+        return self.info
+        
 
 class DQN_Worker(BasicWorker):
     def __init__(self, env_name="PongNoFrameskip-v4", arch=DQN, backbone=BasicNet, cuda=True,
@@ -109,12 +115,13 @@ class DQN_Worker(BasicWorker):
         self.cuda = cuda
         self.eps = 0
 
-    def _action(self):
+    def _action(self, eps=None):
+        eps = self.eps if eps is None else eps
         with torch.no_grad():
             ob = torch.from_numpy(self.ob).cuda().float() if self.cuda else torch.from_numpy(self.ob).float()
             net_a = self.alg.action(ob).item()
         rand_a = self.env.action_space.sample()
-        a = rand_a if random.random() < self.eps else net_a
+        a = rand_a if random.random() < eps else net_a
         return a
 
 

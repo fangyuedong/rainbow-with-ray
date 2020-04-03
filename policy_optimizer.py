@@ -27,6 +27,7 @@ class Optimizer():
 
         kwargs.update({"lr": 1e-4}) if "lr" not in kwargs else None
         kwargs.update({"weight_decay": 5e-5}) if "weight_decay" not in kwargs else None
+        kwargs.update({"eps": 1.5e-4}) if "eps" not in kwargs else None
         self.optimizer = optimizer(self.policy.parameters(), **kwargs)
         self.iter_steps = iter_steps
         self.discount = discount
