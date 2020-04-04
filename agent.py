@@ -42,7 +42,7 @@ class BasicWorker():
         self.ob = self.reset()
         done, episod_len, episod_rw, episod_real_rw, cache = False, 0, 0, 0, []
         while not done and episod_len < self.max_steps:
-            a = self._action(eps=.0)
+            a = self._action()
             next_ob, rw, done, info = self.step(a)
             cache.append({"state": self.ob, "action": a, "next_state": next_ob, "reward": rw, "done": done})
             self.ob = next_ob
@@ -89,7 +89,7 @@ class BasicWorker():
             fourcc, 25.0, (true_ob.shape[1], true_ob.shape[0]))
         acc_rw, real_acc_rw, done = 0, 0, False
         while not done and episod_len < self.max_steps:
-            a = self._action()
+            a = self._action(eps=.0)
             self.ob, rw, done, info = self.step(a)
             acc_rw += rw
             episod_len += 1
