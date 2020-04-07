@@ -25,6 +25,8 @@ class BasicWorker():
         self.write = lambda x: self.db_write(self.db, x) if db and db_write else None
         self.ob = self.reset()
         self.info = {}
+        self.cache = []
+        self.save_count = 0
         print("{}\tOb Space: {}\tActions: {}".format(self.env_name, self._shape(), self._na()))
 
     def reset(self):
@@ -40,20 +42,20 @@ class BasicWorker():
 
     def __next__(self):
         self.ob = self.reset()
-        done, episod_len, episod_rw, episod_real_rw, cache = False, 0, 0, 0, []
+        done, episod_len, episod_rw, episod_real_rw = False, 0, 0, 0
         while not done and episod_len < self.max_steps:
             a = self._action()
             next_ob, rw, done, info = self.step(a)
-            cache.append({"state": self.ob, "action": a, "next_state": next_ob, "reward": rw, "done": done})
+            self.cache.append({"state": self.ob, "action": a, "next_state": next_ob, "reward": rw, "done": done})
             self.ob = next_ob
             episod_len += 1
+            self.save_count += 1
             episod_rw += rw
             episod_real_rw += info["reward"]
-            if episod_len % self.save_interval == 0:
-                self.write(cache)
-                cache.clear()
-        self.write(cache)
-        cache.clear()
+            if self.save_count % self.save_interval == 0:
+                self.write(self.cache)
+                self.cache.clear()
+                self.save_count = 0
         self.info["episod_rw"] = episod_rw
         self.info["episod_real_rw"] = episod_real_rw
         self.info["episod_len"] = episod_len
