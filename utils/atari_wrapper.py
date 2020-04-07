@@ -19,7 +19,9 @@ class NoopResetEnv(gym.Wrapper):
         self.env.reset()
         noops = np.random.randint(1, self.noop_max + 1)
         for _ in range(noops):
-            obs, _, _, _ = self.env.step(0)
+            obs, _, done, _ = self.env.step(0)
+            if done:
+                obs = self.env.reset()
         return obs
 
 class FireResetEnv(gym.Wrapper):
@@ -31,8 +33,12 @@ class FireResetEnv(gym.Wrapper):
 
     def reset(self):
         self.env.reset()
-        obs, _, _, _ = self.env.step(1)
-        obs, _, _, _ = self.env.step(2)
+        obs, _, done, _ = self.env.step(1)
+        if done:
+            self.env.reset()
+        obs, _, done, _ = self.env.step(2)
+        if done:
+            self.env.reset()
         return obs
 
 class EpisodicLifeEnv(gym.Wrapper):
@@ -134,10 +140,11 @@ class StackAndSkipEnv(gym.Wrapper):
         return stack_obs
 
 def _process_frame84(frame):
-    frame = np.dot(frame.astype('float32'), np.array([0.299, 0.587, 0.114], 'float32'))
-    resized_screen = cv2.resize(frame, (84, 84),  interpolation=cv2.INTER_LINEAR)
-    x = np.reshape(resized_screen, (84,84,1))
-    return x.astype(np.uint8)
+    img = frame.astype(np.float32)
+    img = img[:, :, 0] * 0.299 + img[:, :, 1] * 0.587 + img[:, :, 2] * 0.114
+    resized_screen = cv2.resize(img, (84, 84),  interpolation=cv2.INTER_LINEAR)
+    x_t = np.reshape(resized_screen, [84, 84, 1])
+    return x_t.astype(np.uint8)
 
 class ProcessFrame84(gym.Wrapper):
     def __init__(self, env=None):
