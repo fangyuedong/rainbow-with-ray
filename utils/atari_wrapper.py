@@ -203,7 +203,8 @@ def wrap_deepmind(env, phase="train"):
 
 def wrap_rainbow(env, swap=False, phase="train"):
     assert 'NoFrameskip' in env.spec.id
-    env = EpisodicLifeEnv(env)
+    if phase == "train":
+        env = EpisodicLifeEnv(env)
     env = NoopResetEnv(env, noop_max=30)
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetEnv(env)
