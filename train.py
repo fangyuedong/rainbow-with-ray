@@ -9,24 +9,27 @@ import torch
 from tensorboardX import SummaryWriter
 
 n_worker = 1
-n_iter = 10
-n_loader = 5
+n_iter = 20
+n_loader = 4
 env_name = "AsterixNoFrameskip-v4"
 buffer = "multi_workers_buffer"
-batch_size = 256
-lr = batch_size//64*1e-4
-ray.init(num_cpus=1+n_worker+n_loader, object_store_memory=2*1024**3)
+batch_size = 128
+lr = 2.5e-4
+ray.init(num_cpus=1+n_worker+n_loader, object_store_memory=2*1024**3, memory=6*1024**3)
 
 buffer = lmdb_op.init(buffer)
 workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
+test_worker = ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, phase="test", suffix="default")
 worker_id = {worker: "worker_{}".format(i) for i, worker in enumerate(workers)}
 dataloader = Dataloader(buffer, lmdb_op, worker_num=n_loader, batch_size=batch_size, batch_num=n_iter)
-opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, iter_steps=n_iter, update_period=10000*64//batch_size, lr=lr)
+opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, iter_steps=n_iter, update_period=10000, lr=lr)
 sche = Sched()
 eps = 1
-save_count = 0
 opt_start = False
 glog = SummaryWriter("./logdir/{}/{}.lr{}.batch{}".format(env_name, Optimizer.__name__, lr, batch_size), filename_suffix=env_name)
+model_save_period = 100000
+train_step = 0
+model_idx = 0
 
 """
 class_name          method
@@ -47,38 +50,44 @@ def start():
     [sche.add(worker, "__next__") for worker in workers]
 
 def state_machine(tsk_dones, infos):
-    global eps, save_count, opt_start
+    global eps, opt_start, train_step, model_idx
     if lmdb_op.len(buffer) > 100000 and opt_start == False:
         eps = 0.05
         print("[sche] start opt")
         sche.add(opt, "__next__")
         opt_start = True
     for tsk_done, info in zip(tsk_dones, infos):
-        if info.class_name == "DQN_Worker" and info.method == "__next__":
+        if info.handle in workers and info.method == "__next__":
             wk_info = ray.get(tsk_done)
             tsk1 = sche.add(opt, "__call__")
             sche.add(info.handle, "update", state_dict=tsk1, eps=eps)
-            save_count += 1
-            if save_count == 100:
-                save_count = 0
-                sche.add(info.handle, "save", video_path="./train_video")
             print("[sche] rw {}".format(wk_info["episod_rw"]))
             glog.add_scalar("rw/{}".format(worker_id[info.handle]), wk_info["episod_rw"], wk_info["total_env_steps"])
             glog.add_scalar("real_rw/{}".format(worker_id[info.handle]), wk_info["episod_real_rw"], wk_info["total_env_steps"])
-        elif info.class_name == "DQN_Worker" and info.method == "update":
+        elif info.handle in workers and info.method == "update":
             sche.add(info.handle, "__next__")
-        elif info.class_name == "DQN_Worker" and info.method == "save":
-            wk_info = ray.get(tsk_done)
-            glog.add_scalar("test_rw/{}".format(worker_id[info.handle]), wk_info["episod_real_rw"], wk_info["total_env_steps"])
         elif info.class_name == None and info.method == lmdb_op.len.__name__:
             pass
         elif info.class_name == Optimizer.__name__ and info.method == "__next__":
             opt_info = ray.get(tsk_done)
+            if opt_info["opt_steps"] >= train_step + model_save_period:
+                sche.add(info.handle, "save")
+                train_step = opt_info["opt_steps"]
             sche.add(info.handle, "__next__")
             print("[sche] loss: {} @ step {}".format(opt_info["loss"], opt_info["opt_steps"]))
             glog.add_scalar("loss", opt_info["loss"], opt_info["opt_steps"])
+        elif info.class_name == Optimizer.__name__ and info.method == "save":
+            path = ray.get(tsk_done)
+            sche.add(test_worker, "load", path=path)
+            sche.add(test_worker, "__next__")
         elif info.class_name == Optimizer.__name__ and info.method == "__call__":
             pass
+        elif info.handle == test_worker and info.method == "load":
+            pass
+        elif info.handle == test_worker and info.method == "__next__":
+            test_rw = ray.get(tsk_done)
+            glog.add_scalar("test_rw", test_rw, model_idx)
+            model_idx += 1
         else:
             raise NotImplementedError
 
