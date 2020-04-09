@@ -94,7 +94,7 @@ class DQN_Opt(Optimizer):
 
 class DDQN_Opt(DQN_Opt):
     def __init__(self, dataloader, env_name="PongNoFrameskip-v4", suffix="default", arch=DQN, backbone=BasicNet, 
-        discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
+        discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.RMSprop, **kwargs):
         super(DDQN_Opt, self).__init__(dataloader, env_name, suffix, arch, backbone, 
             discount, update_period, iter_steps, cuda, optimizer, **kwargs) 
         kwargs.update({"lr": 2.5e-4}) if "lr" not in kwargs else None
@@ -103,7 +103,7 @@ class DDQN_Opt(DQN_Opt):
         kwargs.update({"alpha": 0.95}) if "alpha" not in kwargs else None
         kwargs.update({"momentum": 0.95}) if "alpha" not in kwargs else None
         self.optimizer = optimizer(self.policy.parameters(), **kwargs)    
-        
+
     def loss_fn(self, state, action, next_state, reward, done):
         with torch.no_grad():
             act = self.policy.action(next_state)
