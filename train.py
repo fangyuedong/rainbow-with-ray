@@ -9,20 +9,20 @@ import torch
 from tensorboardX import SummaryWriter
 
 n_worker = 1
-n_iter = 20
-n_loader = 4
+n_iter = 40
+n_loader = 2
 env_name = "AsterixNoFrameskip-v4"
 buffer = "multi_workers_buffer"
-batch_size = 128
+batch_size = 32
 lr = 2.5e-4
-ray.init(num_cpus=1+n_worker+n_loader, object_store_memory=2*1024**3, memory=6*1024**3)
+ray.init(num_cpus=1+n_worker+n_loader, object_store_memory=1*1024**3, memory=6*1024**3)
 
 buffer = lmdb_op.init(buffer)
 workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
-test_worker = ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, phase="test", suffix="default")
+test_worker = ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, phase="test", suffix="Adam_32")
 worker_id = {worker: "worker_{}".format(i) for i, worker in enumerate(workers)}
 dataloader = Dataloader(buffer, lmdb_op, worker_num=n_loader, batch_size=batch_size, batch_num=n_iter)
-opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, iter_steps=n_iter, update_period=10000, lr=lr)
+opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, suffix="Adam_32", iter_steps=n_iter, update_period=10000, lr=lr)
 sche = Sched()
 eps = 1
 opt_start = False
@@ -52,7 +52,7 @@ def start():
 def state_machine(tsk_dones, infos):
     global eps, opt_start, train_step, model_idx
     if lmdb_op.len(buffer) > 100000 and opt_start == False:
-        eps = 0.05
+        eps = 0.1
         print("[sche] start opt")
         sche.add(opt, "__next__")
         opt_start = True
