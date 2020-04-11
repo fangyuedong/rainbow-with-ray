@@ -24,10 +24,10 @@ class Optimizer():
         self.target = arch(self.shape, self.na, backbone).train()
         self.target.load_state_dict(self.policy.state_dict())
         self.policy.cuda(), self.target.cuda() if cuda else None
-
-        kwargs.update({"lr": 1e-4}) if "lr" not in kwargs else None
-        kwargs.update({"weight_decay": 5e-5}) if "weight_decay" not in kwargs else None
-        kwargs.update({"eps": 1.5e-4}) if "eps" not in kwargs else None
+        if optimizer == torch.optim.Adam:
+            kwargs.update({"lr": 1e-4}) if "lr" not in kwargs else None
+            kwargs.update({"weight_decay": 5e-5}) if "weight_decay" not in kwargs else None
+            kwargs.update({"eps": 1.5e-4}) if "eps" not in kwargs else None
         self.optimizer = optimizer(self.policy.parameters(), **kwargs)
         self.iter_steps = iter_steps
         self.discount = discount
@@ -75,34 +75,22 @@ class Optimizer():
         return self.policy.state_dict()
 
     def save(self):
-        path = os.path.join(self.save_path, "iter_{:0>6d}K.pkl")
+        path = os.path.join(self.save_path, "iter_{:0>6d}K.pkl".format(self.total_opt_steps))
         torch.save(self.policy.state_dict(), path)
         return path
 
 class DQN_Opt(Optimizer):
     def __init__(self, dataloader, env_name="PongNoFrameskip-v4", suffix="default", arch=DQN, backbone=BasicNet, 
-        discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.RMSprop, **kwargs):
+        discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
         super(DQN_Opt, self).__init__(dataloader, env_name, suffix, arch, backbone, 
-            discount, update_period, iter_steps, cuda, optimizer, **kwargs)
-        kwargs.update({"lr": 2.5e-4}) if "lr" not in kwargs else None
-        kwargs.update({"weight_decay": 5e-5}) if "weight_decay" not in kwargs else None
-        kwargs.update({"eps": 0.01}) if "eps" not in kwargs else None
-        kwargs.update({"alpha": 0.95}) if "alpha" not in kwargs else None
-        kwargs.update({"momentum": 0.95}) if "alpha" not in kwargs else None
-        self.optimizer = optimizer(self.policy.parameters(), **kwargs)       
+            discount, update_period, iter_steps, cuda, optimizer, **kwargs)   
 
 
 class DDQN_Opt(DQN_Opt):
     def __init__(self, dataloader, env_name="PongNoFrameskip-v4", suffix="default", arch=DQN, backbone=BasicNet, 
-        discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.RMSprop, **kwargs):
+        discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
         super(DDQN_Opt, self).__init__(dataloader, env_name, suffix, arch, backbone, 
             discount, update_period, iter_steps, cuda, optimizer, **kwargs) 
-        kwargs.update({"lr": 2.5e-4}) if "lr" not in kwargs else None
-        kwargs.update({"weight_decay": 5e-5}) if "weight_decay" not in kwargs else None
-        kwargs.update({"eps": 0.01}) if "eps" not in kwargs else None
-        kwargs.update({"alpha": 0.95}) if "alpha" not in kwargs else None
-        kwargs.update({"momentum": 0.95}) if "alpha" not in kwargs else None
-        self.optimizer = optimizer(self.policy.parameters(), **kwargs)    
 
     def loss_fn(self, state, action, next_state, reward, done):
         with torch.no_grad():
