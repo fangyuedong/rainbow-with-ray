@@ -109,6 +109,30 @@ class MaxAndSkipEnv(gym.Wrapper):
         self._obs_buffer.append(obs)
         return obs
 
+class FrameStackEnv(gym.Wrapper):
+    def __init__(self, env, k):
+        """Buffer observations and stack across channels (last axis)."""
+        super(FrameStackEnv, self).__init__(env)
+        self.k = k
+        self.frames = deque(maxlen=k)
+        chn = env.observation_space.shape[-1] * k   
+        self.observation_space = spaces.Box(low=0, high=255, shape=env.observation_space.shape[0:2]+(chn,))
+
+    def reset(self):
+        """Clear buffer and re-fill by duplicating the first observation."""
+        ob = self.env.reset()
+        for _ in range(self.k): self.frames.append(ob)
+        return self._observation()
+
+    def step(self, action):
+        ob, reward, done, info = self.env.step(action)
+        self.frames.append(ob)
+        return self._observation(), reward, done, info
+
+    def _observation(self):
+        assert len(self.frames) == self.k
+        return np.concatenate(self.frames, axis=2)
+
 class StackAndSkipEnv(gym.Wrapper):
     def __init__(self, env=None, skip=4):
         """Stack skip frames together"""
@@ -209,7 +233,8 @@ def wrap_rainbow(env, swap=False, phase="train"):
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetEnv(env)
     env = ProcessFrame84(env)
-    env = StackAndSkipEnv(env, skip=4)
+    env = MaxAndSkipEnv(env, skip=4)
+    env = FrameStackEnv(env, k=4)
     if phase == "train":
         env = ClippedRewardsWrapper(env)
     if swap == True:
@@ -218,7 +243,7 @@ def wrap_rainbow(env, swap=False, phase="train"):
 
 if __name__ == "__main__":
     import cv2
-    env = gym.make("PongNoFrameskip-v4")
+    env = gym.make("AsterixNoFrameskip-v4")
     env = wrap_rainbow(env, swap=True)
     print(env.observation_space)
     ob = env.reset()
