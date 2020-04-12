@@ -30,6 +30,8 @@ glog = SummaryWriter("./logdir/{}/{}.lr{}.batch{}".format(env_name, Optimizer.__
 model_save_period = 100000
 train_step = 0
 model_idx = 0
+total_envs_steps = 0
+curr_train_steps = 0
 
 """
 class_name          method
@@ -50,7 +52,7 @@ def start():
     [sche.add(worker, "__next__") for worker in workers]
 
 def state_machine(tsk_dones, infos):
-    global eps, opt_start, train_step, model_idx
+    global eps, opt_start, train_step, model_idx, total_envs_steps, curr_train_steps
     if lmdb_op.len(buffer) > 100000 and opt_start == False:
         eps = 0.1
         print("[sche] start opt")
@@ -64,16 +66,19 @@ def state_machine(tsk_dones, infos):
             print("[sche] rw {}".format(wk_info["episod_rw"]))
             glog.add_scalar("rw/{}".format(worker_id[info.handle]), wk_info["episod_rw"], wk_info["total_env_steps"])
             glog.add_scalar("real_rw/{}".format(worker_id[info.handle]), wk_info["episod_real_rw"], wk_info["total_env_steps"])
+            total_envs_steps += wk_info["total_env_steps"]
+            if opt_start and 8 * total_envs_steps > curr_train_steps*batch_size:
+                sche.add(opt, "__next__")
         elif info.handle in workers and info.method == "update":
             sche.add(info.handle, "__next__")
         elif info.class_name == None and info.method == lmdb_op.len.__name__:
             pass
         elif info.class_name == Optimizer.__name__ and info.method == "__next__":
             opt_info = ray.get(tsk_done)
+            curr_train_steps += opt_info["opt_steps"]
             if opt_info["opt_steps"] >= train_step + model_save_period:
                 sche.add(info.handle, "save")
                 train_step = opt_info["opt_steps"]
-            sche.add(info.handle, "__next__")
             print("[sche] loss: {} @ step {}".format(opt_info["loss"], opt_info["opt_steps"]))
             glog.add_scalar("loss", opt_info["loss"], opt_info["opt_steps"])
         elif info.class_name == Optimizer.__name__ and info.method == "save":
