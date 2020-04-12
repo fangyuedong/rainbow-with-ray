@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import random
 import time
+import schedule
 sys.path.append("./")
 from network.backbone import BasicNet
 from network.dqn import DQN
@@ -23,13 +24,15 @@ class BasicWorker():
         self.save_interval = save_interval
         self.max_steps = max_steps
         self.db = db
+        if db_write:
+            assert "db" in db_write.__code__.co_varnames and "data" in db_write.__code__.co_varnames
         self.db_write = db_write
-        self.write = lambda x: self.db_write(self.db, x) if db and db_write else None
         self.ob = self.reset()
         self.info = {}
         self.cache = []
         self.save_count = 0
         self.video_path = "./video/{}/{}".format(env_name, suffix)
+        self.sche = schedule.Sched()
         print("{}\tOb Space: {}\tActions: {}".format(self.env_name, self._shape(), self._na()))
 
     def reset(self):
@@ -53,7 +56,9 @@ class BasicWorker():
             episod_rw += rw
             episod_real_rw += info["reward"]
             if self.save_count % self.save_interval == 0:
-                self.write(self.cache)
+                if len(self.sche):
+                    self.sche.wait()
+                self.sche.add(None, self.db_write, db=self.db, data=self.cache)
                 self.cache.clear()
                 self.save_count = 0
         self.info["episod_rw"] = episod_rw
