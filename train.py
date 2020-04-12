@@ -67,15 +67,16 @@ def state_machine(tsk_dones, infos):
             glog.add_scalar("rw/{}".format(worker_id[info.handle]), wk_info["episod_rw"], wk_info["total_env_steps"])
             glog.add_scalar("real_rw/{}".format(worker_id[info.handle]), wk_info["episod_real_rw"], wk_info["total_env_steps"])
             total_envs_steps += wk_info["total_env_steps"]
-            if opt_start and 8 * total_envs_steps > curr_train_steps*batch_size:
+            if opt_start and 8 * total_envs_steps > curr_train_steps * batch_size:
                 sche.add(opt, "__next__")
+                curr_train_steps += n_iter
         elif info.handle in workers and info.method == "update":
             sche.add(info.handle, "__next__")
         elif info.class_name == None and info.method == lmdb_op.len.__name__:
             pass
         elif info.class_name == Optimizer.__name__ and info.method == "__next__":
             opt_info = ray.get(tsk_done)
-            curr_train_steps += opt_info["opt_steps"]
+            # curr_train_steps += opt_info["opt_steps"]
             if opt_info["opt_steps"] >= train_step + model_save_period:
                 sche.add(info.handle, "save")
                 train_step = opt_info["opt_steps"]
