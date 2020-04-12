@@ -13,7 +13,7 @@ n_iter = 40
 n_loader = 2
 env_name = "AsterixNoFrameskip-v4"
 buffer = "multi_workers_buffer"
-batch_size = 32
+batch_size = 64
 lr = 2.5e-4
 ray.init(num_cpus=1+n_worker+n_loader, object_store_memory=1*1024**3, memory=6*1024**3)
 
@@ -67,7 +67,7 @@ def state_machine(tsk_dones, infos):
             glog.add_scalar("rw/{}".format(worker_id[info.handle]), wk_info["episod_rw"], wk_info["total_env_steps"])
             glog.add_scalar("real_rw/{}".format(worker_id[info.handle]), wk_info["episod_real_rw"], wk_info["total_env_steps"])
             total_envs_steps += wk_info["total_env_steps"]
-            if opt_start and 8 * total_envs_steps > curr_train_steps * batch_size:
+            if opt_start and (not sche.have(opt, "__next__")) and (8 * total_envs_steps > curr_train_steps * batch_size):
                 sche.add(opt, "__next__")
                 curr_train_steps += n_iter
         elif info.handle in workers and info.method == "update":
