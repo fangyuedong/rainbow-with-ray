@@ -13,16 +13,16 @@ n_iter = 40
 n_loader = 2
 env_name = "AsterixNoFrameskip-v4"
 buffer = "multi_workers_buffer"
-batch_size = 64
-lr = 2.5e-4
+batch_size = 32
+lr = 0.625e-4
 ray.init(num_cpus=1+n_worker+n_loader, object_store_memory=1*1024**3, memory=6*1024**3)
 
 buffer = lmdb_op.init(buffer)
 workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
-test_worker = ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, phase="test", suffix="Adam_32")
+test_worker = ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, phase="test", suffix="overfit_32")
 worker_id = {worker: "worker_{}".format(i) for i, worker in enumerate(workers)}
 dataloader = Dataloader(buffer, lmdb_op, worker_num=n_loader, batch_size=batch_size, batch_num=n_iter)
-opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, suffix="Adam_32", iter_steps=n_iter, update_period=10000, lr=lr)
+opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, suffix="overfit_32", iter_steps=n_iter, update_period=10000, lr=lr)
 sche = Sched()
 eps = 1
 opt_start = False
@@ -66,7 +66,7 @@ def state_machine(tsk_dones, infos):
             print("[sche] rw {}".format(wk_info["episod_rw"]))
             glog.add_scalar("rw/{}".format(worker_id[info.handle]), wk_info["episod_rw"], wk_info["total_env_steps"])
             glog.add_scalar("real_rw/{}".format(worker_id[info.handle]), wk_info["episod_real_rw"], wk_info["total_env_steps"])
-            total_envs_steps += wk_info["total_env_steps"]
+            total_envs_steps += wk_info["episod_len"]
             if opt_start and (not sche.have(opt, "__next__")) and (8 * total_envs_steps > curr_train_steps * batch_size):
                 sche.add(opt, "__next__")
                 curr_train_steps += n_iter
@@ -76,7 +76,9 @@ def state_machine(tsk_dones, infos):
             pass
         elif info.class_name == Optimizer.__name__ and info.method == "__next__":
             opt_info = ray.get(tsk_done)
-            # curr_train_steps += opt_info["opt_steps"]
+            if (not sche.have(opt, "__next__")) and (8 * total_envs_steps > curr_train_steps * batch_size):
+                sche.add(opt, "__next__")
+                curr_train_steps += n_iter
             if opt_info["opt_steps"] >= train_step + model_save_period:
                 sche.add(info.handle, "save")
                 train_step = opt_info["opt_steps"]
