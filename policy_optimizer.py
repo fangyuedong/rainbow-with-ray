@@ -79,6 +79,12 @@ class Optimizer():
         torch.save(self.policy.state_dict(), path)
         return path
 
+    def config(self):
+        info = {}
+        info["batch_size"] = self.dataloader.batch_size
+        info["iter_steps"] = self.iter_steps
+        return info
+
 class DQN_Opt(Optimizer):
     def __init__(self, dataloader, env_name="PongNoFrameskip-v4", suffix="default", arch=DQN, backbone=BasicNet, 
         discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
