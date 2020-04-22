@@ -4,10 +4,6 @@ import time
 
 RayTsk = namedtuple('RayTsk', ['handle', 'method', 'params', 'class_name'])
 
-@ray.remote
-def pin_object(tsk_id):
-    """put remote actor or remote func output to pinning memory to prevent evicted"""
-    return [ray.put(tsk_id)]
 class Sched():
     def __init__(self):
         self.tsk_info = {}
