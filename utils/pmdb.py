@@ -40,6 +40,7 @@ class SegTree():
             else:
                 value -= left_value
                 top = left+1
+            left = 2*top+1
         return top
 
     def find(self, values):
