@@ -22,7 +22,7 @@ class TestCase(unittest.TestCase):
             print(db_op.len(buffer))
         count = 0
         t0 = time.time()
-        for data in dataloader:
+        for data, _, _ in dataloader:
             fd = {k: torch.from_numpy(v) for k, v in data.items()}
             fd = {k: v.cuda().float() for k, v in fd.items()}
             count += 1

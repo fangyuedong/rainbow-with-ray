@@ -45,7 +45,7 @@ class Optimizer():
         """iter and return policy params"""
         period = self.iter_steps if opt_steps == None else opt_steps
         sum_loss = 0
-        for i, data in enumerate(self.dataloader):
+        for i, (data,_,_) in enumerate(self.dataloader):
             data = {k: f(k, v) for k, v in data.items()}
             loss = self.loss_fn(**data)
             self.optimizer.zero_grad()
