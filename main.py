@@ -2,7 +2,7 @@ from schedule import Sched, Engine
 from agent import DQN_Worker
 from policy_optimizer import DDQN_Opt as Optimizer
 from utils.dataloader import Dataloader
-from utils.replay_buffer import mmdb_op as lmdb_op
+from utils.replay_buffer import pmdb_op as lmdb_op
 import ray
 import time
 import torch

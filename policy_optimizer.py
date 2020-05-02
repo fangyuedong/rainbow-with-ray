@@ -24,6 +24,7 @@ class Optimizer():
         self.target = arch(self.shape, self.na, backbone).train()
         self.target.load_state_dict(self.policy.state_dict())
         self.policy.cuda(), self.target.cuda() if cuda else None
+        self.prior = (self.dataloader.dataset._ray_actor_creation_function_descriptor.class_name == "Pmdb")
         if optimizer == torch.optim.Adam:
             kwargs.update({"lr": 1e-4}) if "lr" not in kwargs else None
             kwargs.update({"weight_decay": 5e-5}) if "weight_decay" not in kwargs else None
@@ -45,9 +46,11 @@ class Optimizer():
         """iter and return policy params"""
         period = self.iter_steps if opt_steps == None else opt_steps
         sum_loss = 0
-        for i, (data,_,_) in enumerate(self.dataloader):
+        for i, (data, check_id, idx) in enumerate(self.dataloader):
             data = {k: f(k, v) for k, v in data.items()}
-            loss = self.loss_fn(**data)
+            loss, td_err = self.loss_fn(**data)
+            if self.prior:
+                self.dataloader.update(idx, td_err.cpu().numpy().tolist(), check_id)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -67,8 +70,8 @@ class Optimizer():
             target = self.discount * self.target.value(next_state) * (1 - done) + reward
         q_fn = self.policy.value(state, action)
         assert q_fn.shape == target.shape
-        loss = self.policy.loss_fn(q_fn, target)
-        return loss
+        loss, td_err = self.policy.loss_fn(q_fn, target)
+        return loss, td_err
 
     def __call__(self):
         """return policy params"""
@@ -104,5 +107,5 @@ class DDQN_Opt(DQN_Opt):
             target = self.discount * self.target.value(next_state, act) * (1 - done) + reward
         q_fn = self.policy.value(state, action)
         assert q_fn.shape == target.shape
-        loss = self.policy.loss_fn(q_fn, target)
-        return loss
+        loss, td_err = self.policy.loss_fn(q_fn, target)
+        return loss, td_err

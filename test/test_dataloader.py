@@ -5,7 +5,7 @@ import ray
 import random
 import numpy as np
 sys.path.append("./")
-from utils.replay_buffer import mmdb_op as db_op
+from utils.replay_buffer import pmdb_op as db_op
 from utils.dataloader import Dataloader
 from agent import BasicWorker
 import torch

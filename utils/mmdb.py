@@ -63,10 +63,13 @@ class Mmdb():
     def __len__(self):
         return len(self.db)
 
+    def check_id(self, idxs, data_ids):
+        return [self.data_id[idx] == data_id for idx, data_id in zip(idxs, data_ids)]
+
 def mmdb_init(path, cap=1000000):
     return ray.remote(Mmdb).remote(cap, mm_count=len)
 
-def mmdb_write(db, data):
+def mmdb_write(db, data, **kwargs):
     if not isinstance(data, (list, tuple)):
         data = [data]
     zip_data = [gzip.compress(pkl.dumps(x), 7) for x in data]
@@ -89,6 +92,9 @@ def mmdb_sample(db, nb=None, shullfer=True):
     data = [pkl.loads(gzip.decompress(x)) for x in zip_data]
     return data, data_id, idx
     
+def mmdb_update(db, **kwargs):
+    pass
+
 def mmdb_clean(db):
     pass
 

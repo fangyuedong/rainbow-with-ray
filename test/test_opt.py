@@ -23,7 +23,7 @@ class TestCase(unittest.TestCase):
         while 1:
             wk_info = next(exc_worker)
             if wk_info is not None:
-                exc_worker.save("./train_video") if count % 100 == 0 else None
+                # exc_worker.save("./train_video") if count % 100 == 0 else None
                 print("worker reward: {} @ episod {}".format(wk_info["episod_rw"], count))
                 count += 1
             if db_op.len(buffer) >= 10000:

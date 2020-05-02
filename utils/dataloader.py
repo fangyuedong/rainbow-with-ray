@@ -24,6 +24,10 @@ def pre_fetch_worker(work_func, dataset, num, batch_size):
         for item, item_id, item_idx in zip(data_split, data_id_split, idx_split)]
     return data
         
+@ray.remote
+def update_prior_worker(work_func, dataset, idxs, priors, check_ids):
+    work_func(dataset, idxs, priors, check_ids)
+
 class Dataloader():
     def __init__(self, dataset, data_op, worker_num=1, batch_size=64, batch_num=10):
         self.dataset = dataset
@@ -34,6 +38,7 @@ class Dataloader():
         self.batch_num = batch_num
         self.tsks = []
         self.cache = []
+        self.update_prior_tsks = []
 
     def __iter__(self):
         return self
@@ -48,5 +53,10 @@ class Dataloader():
             self.cache = ray.get(tsk_dones[0])
             return self.cache.pop(0)
         else:
-            return self.cache.pop(0)        
+            return self.cache.pop(0)  
+
+    def update(self, idxs, priors, check_ids):
+        if len(self.update_prior_tsks):
+            _, self.update_prior_tsks = ray.wait(self.update_prior_tsks)
+        self.update_prior_tsks.append(update_prior_worker.remote(self.data_op.update, self.dataset, idxs, priors, check_ids))
 

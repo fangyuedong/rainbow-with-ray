@@ -44,5 +44,5 @@ class DQN(nn.Module):
         return x.max(x.ndim-1)[0] if a is None else x.gather(x.ndim-1, a.unsqueeze(a.ndim)).squeeze(a.ndim)
 
     def loss_fn(self, x, target):
-        return F.smooth_l1_loss(x, target)
+        return F.smooth_l1_loss(x, target), (x - target).abs().detach()
     

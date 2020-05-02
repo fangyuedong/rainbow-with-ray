@@ -89,7 +89,7 @@ class Engine():
         return self.newest_p
 
     def add_opt(self):
-        if (not self.sche.have(self.opt, "__next__")) and self.env_steps * self.s > self.opt_steps * self.batch_size:
+        if (not self.sche.have(self.opt, "__next__")) and (self.env_steps - 100000) * self.s > self.opt_steps * self.batch_size:
             self.sche.add(self.opt, "__next__")
 
     def add_exec_work(self, handle):
