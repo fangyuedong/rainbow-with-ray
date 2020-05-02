@@ -50,7 +50,7 @@ class Sched():
 
 
 class Engine():
-    def __init__(self, opt, exec_workers, test_worker, replay_buff, glog, speed=8, update_period=10):
+    def __init__(self, opt, exec_workers, test_worker, replay_buff, glog, speed=8, update_period=10, replay_start=100000):
         assert isinstance(opt, ray.actor.ActorHandle)
         assert isinstance(test_worker, ray.actor.ActorHandle)
         assert isinstance(replay_buff, ray.actor.ActorHandle)
@@ -62,6 +62,7 @@ class Engine():
         self.replay_buff = replay_buff
         self.glog = glog
         self.s = speed
+        self.replay_start = replay_start
         self.update_period = update_period
         self.batch_size = ray.get(self.opt.config.remote())["batch_size"]
 
@@ -76,7 +77,7 @@ class Engine():
         self.sche = Sched()
 
     def get_eps(self):
-        if self.env_steps < 100000:
+        if self.env_steps < self.replay_start:
             eps = 1.0
         else:
             eps = 0.1
@@ -89,7 +90,7 @@ class Engine():
         return self.newest_p
 
     def add_opt(self):
-        if (not self.sche.have(self.opt, "__next__")) and (self.env_steps - 100000) * self.s > self.opt_steps * self.batch_size:
+        if (not self.sche.have(self.opt, "__next__")) and (self.env_steps - self.replay_start) * self.s > self.opt_steps * self.batch_size:
             self.sche.add(self.opt, "__next__")
 
     def add_exec_work(self, handle):
@@ -143,7 +144,7 @@ class Engine():
         self.add_test_work()
         self.add_opt() if self.opting == True else None
 
-        self.opting = self.env_steps > 100000
+        self.opting = self.env_steps > self.replay_start
 
     def reset(self):
         tsk_id = self.sche.add(self.opt, "__call__")
