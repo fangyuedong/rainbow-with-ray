@@ -2,6 +2,7 @@ import os, sys
 import torch
 import gym
 import cv2
+import ray
 sys.path.append("./")
 from network.backbone import BasicNet
 from network.dqn import DQN
@@ -18,6 +19,7 @@ class Optimizer():
         discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
         assert isinstance(dataloader, Dataloader)
         self.dataloader = dataloader
+        self.beta = 1.0
         self.env = wrap_rainbow(gym.make(env_name), swap=True, phase="train")
         self.shape, self.na = self.env.observation_space.shape, self.env.action_space.n
         self.policy = arch(self.shape, self.na, backbone).train()
@@ -25,10 +27,12 @@ class Optimizer():
         self.target.load_state_dict(self.policy.state_dict())
         self.policy.cuda(), self.target.cuda() if cuda else None
         self.prior = (self.dataloader.dataset._ray_actor_creation_function_descriptor.class_name == "Pmdb")
+        self.N = ray.get(self.dataloader.dataset.config.remote())["cap"]
+        self.normalizer = torch.tensor(0).float().cuda()
         if optimizer == torch.optim.Adam:
             kwargs.update({"lr": 1e-4}) if "lr" not in kwargs else None
             kwargs.update({"weight_decay": 5e-5}) if "weight_decay" not in kwargs else None
-            kwargs.update({"eps": 1.5e-4}) if "eps" not in kwargs else None
+            kwargs.update({"eps": 1e-8}) if "eps" not in kwargs else None
         self.optimizer = optimizer(self.policy.parameters(), **kwargs)
         self.iter_steps = iter_steps
         self.discount = discount
@@ -46,9 +50,13 @@ class Optimizer():
         """iter and return policy params"""
         period = self.iter_steps if opt_steps == None else opt_steps
         sum_loss = 0
-        for i, (data, check_id, idx) in enumerate(self.dataloader):
+        for i, (data, check_id, idx, p) in enumerate(self.dataloader):
             data = {k: f(k, v) for k, v in data.items()}
-            loss, td_err = self.loss_fn(**data)
+            if self.prior:
+                IS = (self.N * torch.from_numpy(p).cuda().float()).pow(-self.beta)
+                self.normalizer = torch.max(torch.max(IS), self.normalizer)
+                IS = IS / self.normalizer
+            loss, td_err = self.loss_fn(**data, IS=IS)
             if self.prior:
                 self.dataloader.update(idx, td_err.cpu().numpy().tolist(), check_id)
             self.optimizer.zero_grad()
@@ -65,12 +73,12 @@ class Optimizer():
     def update_target(self):
         self.target.load_state_dict(self.policy.state_dict())
 
-    def loss_fn(self, state, action, next_state, reward, done):
+    def loss_fn(self, state, action, next_state, reward, done, IS=None):
         with torch.no_grad():
             target = self.discount * self.target.value(next_state) * (1 - done) + reward
         q_fn = self.policy.value(state, action)
         assert q_fn.shape == target.shape
-        loss, td_err = self.policy.loss_fn(q_fn, target)
+        loss, td_err = self.policy.loss_fn(q_fn, target, IS)
         return loss, td_err
 
     def __call__(self):
@@ -101,11 +109,11 @@ class DDQN_Opt(DQN_Opt):
         super(DDQN_Opt, self).__init__(dataloader, env_name, suffix, arch, backbone, 
             discount, update_period, iter_steps, cuda, optimizer, **kwargs) 
 
-    def loss_fn(self, state, action, next_state, reward, done):
+    def loss_fn(self, state, action, next_state, reward, done, IS=None):
         with torch.no_grad():
             act = self.policy.action(next_state)
             target = self.discount * self.target.value(next_state, act) * (1 - done) + reward
         q_fn = self.policy.value(state, action)
         assert q_fn.shape == target.shape
-        loss, td_err = self.policy.loss_fn(q_fn, target)
+        loss, td_err = self.policy.loss_fn(q_fn, target, IS)
         return loss, td_err

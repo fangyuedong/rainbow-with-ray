@@ -8,17 +8,18 @@ sys.path.append("./")
 from utils.mmdb import Mmdb
 
 class SegTree():
-    def __init__(self, max_num=1000**2, maxp=None):
+    def __init__(self, max_num=1000**2, alpha=0.6, maxp=None):
         self.max_num = max_num
+        self.alpha = alpha
         self.index = 0
         self.history_len = 0
         self.struct_len = 2**math.ceil(math.log(max_num, 2))
         self.sum_tree = [0.0 for _ in range(2*self.struct_len-1)]
-        self.maxp = maxp
+        self.maxp = maxp**alpha
 
     def _propagate(self, idx, value):
         parent = idx
-        self.sum_tree[parent] = value if self.maxp==None else min(value, self.maxp)
+        self.sum_tree[parent] = value**self.alpha if self.maxp==None else min(value**self.alpha, self.maxp)
         while parent > 0:
             parent = (parent-1)//2
             left = 2*parent+1
@@ -71,7 +72,7 @@ def default_func(db, nb):
 class Pmdb():
     def __init__(self, cap=1000000, memory_limit=3*1024**3, mm_count=None, sample_func=default_func, maxp=None):
         self.mmdb = Mmdb(cap, memory_limit, mm_count)
-        self.tree = SegTree(cap, maxp)
+        self.tree = SegTree(cap, maxp=maxp)
         self.sample_func = sample_func
         self.maxp = maxp
         assert len(self.mmdb) == len(self.tree)
@@ -89,7 +90,9 @@ class Pmdb():
 
     def sample(self, nb):
         idxs = self.sample_func(self, nb)
-        return self.read(idxs)
+        total = self.tree.total()
+        ps = [self.tree[idx]/total for idx in idxs]
+        return self.read(idxs) + (ps,)
 
     def update(self, idxs, priors, check_ids):
         checks = self.mmdb.check_id(idxs, check_ids)
@@ -99,6 +102,10 @@ class Pmdb():
 
     def __len__(self):
         return len(self.mmdb)
+
+    def config(self):
+        config = self.mmdb.config()
+        return config
 
 def pmdb_init(path, cap=1000000):
     return ray.remote(Pmdb).remote(cap, mm_count=len, maxp=1.0)
@@ -121,9 +128,9 @@ def pmdb_read(db, idxs):
 def pmdb_sample(db, nb, **kwargs):
     assert isinstance(db, ray.actor.ActorHandle) and \
         db._ray_actor_creation_function_descriptor.class_name == "Pmdb"
-    zip_data, data_id, idx = ray.get(db.sample.remote(nb))
+    zip_data, data_id, idx, p = ray.get(db.sample.remote(nb))
     data = [pkl.loads(gzip.decompress(x)) for x in zip_data]
-    return data, data_id, idx
+    return data, data_id, idx, p
     
 def pmdb_update(db, idxs, priors, check_ids):
     assert isinstance(db, ray.actor.ActorHandle) and \
@@ -135,6 +142,9 @@ def pmdb_clean(db):
 
 def pmdb_len(db):
     return ray.get(db.__len__.remote())
+
+def pmdb_config(db):
+    return ray.get(db.config.remote())
         
 
 

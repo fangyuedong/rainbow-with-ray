@@ -43,6 +43,9 @@ class DQN(nn.Module):
         assert a is None or x.ndim == a.ndim+1, "x.ndim{} is not compatible with a.ndim{}".format(x.ndim, a.ndim)
         return x.max(x.ndim-1)[0] if a is None else x.gather(x.ndim-1, a.unsqueeze(a.ndim)).squeeze(a.ndim)
 
-    def loss_fn(self, x, target):
-        return F.smooth_l1_loss(x, target), (x - target).abs().detach()
+    def loss_fn(self, x, target, IS=None):
+        if IS is None:
+            return F.smooth_l1_loss(x, target), (x - target).abs().detach()
+        else:
+            return torch.mean(F.smooth_l1_loss(x, target, reduction="none") * IS), (x - target).abs().detach()
     

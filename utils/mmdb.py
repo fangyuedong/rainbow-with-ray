@@ -58,13 +58,19 @@ class Mmdb():
 
     def sample(self, nb, shullfer=True):
         idxs = self.sample_func(self, nb, shullfer)
-        return self.read(idxs)
+        ps = [1.0/self.cap for _ in range(nb)]
+        return self.read(idxs) + (ps,)
 
     def __len__(self):
         return len(self.db)
 
     def check_id(self, idxs, data_ids):
         return [self.data_id[idx] == data_id for idx, data_id in zip(idxs, data_ids)]
+
+    def config(self):
+        config = {}
+        config["cap"] = self.cap
+        return config
 
 def mmdb_init(path, cap=1000000):
     return ray.remote(Mmdb).remote(cap, mm_count=len)
@@ -88,9 +94,9 @@ def mmdb_read(db, idxs):
 def mmdb_sample(db, nb=None, shullfer=True):
     assert isinstance(db, ray.actor.ActorHandle) and \
         db._ray_actor_creation_function_descriptor.class_name == "Mmdb"
-    zip_data, data_id, idx = ray.get(db.sample.remote(nb, shullfer))
+    zip_data, data_id, idx, p = ray.get(db.sample.remote(nb, shullfer))
     data = [pkl.loads(gzip.decompress(x)) for x in zip_data]
-    return data, data_id, idx
+    return data, data_id, idx, p
     
 def mmdb_update(db, **kwargs):
     pass
@@ -100,5 +106,8 @@ def mmdb_clean(db):
 
 def mmdb_len(db):
     return ray.get(db.__len__.remote())
+
+def mmdb_config(db):
+    return ray.get(db.config.remote())
 
         
