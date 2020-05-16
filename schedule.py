@@ -99,7 +99,7 @@ class Engine():
         self.sche.add(handle, "__next__")
 
     def add_test_work(self):
-        if (not self.sche.have(self.test_worker, "__next__")) and self.opt_steps // 100000 - self.opt_steps_test // 100000 == 1:
+        if (not self.sche.have(self.test_worker, "__next__")) and self.opt_steps // 10000 - self.opt_steps_test // 10000 == 1:
             tsk_id = self.sche.add(self.opt, "save")
             self.sche.add(self.test_worker, "load", path=tsk_id)
             self.sche.add(self.test_worker, "__next__")
@@ -149,6 +149,7 @@ class Engine():
     def reset(self):
         tsk_id = self.sche.add(self.opt, "__call__")
         eps = self.get_eps()
-        [self.sche.add(worker, "update", state_dict=tsk_id, eps=eps) for worker in self.exec_workers]
-        [self.sche.add(worker, "__next__") for worker in self.exec_workers]
-        
+        tsks = [self.sche.add(worker, "update", state_dict=tsk_id, eps=eps) for worker in self.exec_workers]
+        ray.wait(tsks, len(tsks))
+        tsks = [self.sche.add(worker, "__next__") for worker in self.exec_workers]
+        ray.wait(tsks, len(tsks))

@@ -1,12 +1,13 @@
 import os, sys
 import torch
+import torch.nn.functional as F
 import gym
 import cv2
 import ray
 sys.path.append("./")
 from network.backbone import BasicNet
 from network.dqn import DQN
-from utils.dataloader import Dataloader
+from utils.dataloader import Dataloader, batch4net
 from utils.atari_wrapper import wrap_rainbow
 
 """
@@ -14,18 +15,22 @@ Transition = {"state": np.array, "action": int, "next_state": np.array, "reward"
 """
 f = lambda k, x: torch.from_numpy(x).cuda().float() if k != "action" else torch.from_numpy(x).cuda()
 
+def smooth_l1_loss(x):
+    return torch.where(x < 1, 0.5 * x ** 2, x - 0.5)
+
 class Optimizer():
     def __init__(self, dataloader, env_name="PongNoFrameskip-v4", suffix="default", arch=DQN, backbone=BasicNet, 
         discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
         assert isinstance(dataloader, Dataloader)
         self.dataloader = dataloader
-        self.beta = 1.0
+        self.beta = 0.4
         self.env = wrap_rainbow(gym.make(env_name), swap=True, phase="train")
         self.shape, self.na = self.env.observation_space.shape, self.env.action_space.n
         self.policy = arch(self.shape, self.na, backbone).train()
         self.target = arch(self.shape, self.na, backbone).train()
         self.target.load_state_dict(self.policy.state_dict())
         self.policy.cuda(), self.target.cuda() if cuda else None
+        self.cuda = cuda
         self.prior = (self.dataloader.dataset._ray_actor_creation_function_descriptor.class_name == "Pmdb")
         self.N = ray.get(self.dataloader.dataset.config.remote())["cap"]
         self.normalizer = torch.tensor(0).float().cuda()
@@ -51,11 +56,11 @@ class Optimizer():
         period = self.iter_steps if opt_steps == None else opt_steps
         sum_loss = 0
         for i, (data, check_id, idx, p) in enumerate(self.dataloader):
-            data = {k: f(k, v) for k, v in data.items()}
+            data = batch4net(data, self.cuda)
+            IS = None
             if self.prior:
                 IS = (self.N * torch.from_numpy(p).cuda().float()).pow(-self.beta)
-                self.normalizer = torch.max(torch.max(IS), self.normalizer)
-                IS = IS / self.normalizer
+                IS = IS / IS.mean()
             loss, td_err = self.loss_fn(**data, IS=IS)
             if self.prior:
                 self.dataloader.update(idx, td_err.cpu().numpy().tolist(), check_id)
@@ -73,13 +78,21 @@ class Optimizer():
     def update_target(self):
         self.target.load_state_dict(self.policy.state_dict())
 
-    def loss_fn(self, state, action, next_state, reward, done, IS=None):
+    @staticmethod
+    def td_err(policy, target, state, action, next_state, reward, done, discount):
         with torch.no_grad():
-            target = self.discount * self.target.value(next_state) * (1 - done) + reward
-        q_fn = self.policy.value(state, action)
-        assert q_fn.shape == target.shape
-        loss, td_err = self.policy.loss_fn(q_fn, target, IS)
-        return loss, td_err
+            tar_v = discount * target.value(next_state) * (1 - done) + reward
+        q_v = policy.value(state, action)
+        assert q_v.shape == tar_v.shape
+        return policy.td_err(q_v, tar_v)
+    
+    def loss_fn(self, state, action, next_state, reward, done, IS=None):
+        err = self.td_err(self.policy, self.target, state, action, next_state, reward, done, self.discount)
+        if IS is not None:
+            loss = troch.mean(smooth_l1_loss(err) * IS)
+        else:
+            loss = torch.mean(smooth_l1_loss(err))
+        return loss, err.detach()
 
     def __call__(self):
         """return policy params"""
@@ -109,11 +122,11 @@ class DDQN_Opt(DQN_Opt):
         super(DDQN_Opt, self).__init__(dataloader, env_name, suffix, arch, backbone, 
             discount, update_period, iter_steps, cuda, optimizer, **kwargs) 
 
-    def loss_fn(self, state, action, next_state, reward, done, IS=None):
+    @staticmethod
+    def td_err(policy, target, state, action, next_state, reward, done, discount):
         with torch.no_grad():
-            act = self.policy.action(next_state)
-            target = self.discount * self.target.value(next_state, act) * (1 - done) + reward
-        q_fn = self.policy.value(state, action)
-        assert q_fn.shape == target.shape
-        loss, td_err = self.policy.loss_fn(q_fn, target, IS)
-        return loss, td_err
+            act = policy.action(next_state)
+            tar_v = discount * target.value(next_state, act) * (1 - done) + reward
+        q_v = policy.value(state, action)
+        assert q_v.shape == tar_v.shape
+        return policy.td_err(q_v, tar_v)

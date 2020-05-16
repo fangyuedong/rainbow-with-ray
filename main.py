@@ -2,7 +2,7 @@ from schedule import Sched, Engine
 from agent import DQN_Worker
 from policy_optimizer import DDQN_Opt as Optimizer
 from utils.dataloader import Dataloader
-from utils.replay_buffer import pmdb_op as lmdb_op
+from utils.replay_buffer import mmdb_op as lmdb_op
 import ray
 import time
 import torch
@@ -17,6 +17,7 @@ parse.add_argument("--batch_size", default=256, type=int, help="train batch size
 parse.add_argument("--lr", default=0.625e-4, type=float, help="learning rate")
 parse.add_argument("--suffix", default="default", help="suffix for saving folders")
 parse.add_argument("--speed", default=8, type=int, help="training data consum speed. default 8x data generate speed")
+parse.add_argument("--replay_start", default=100000, type=int, help="min replay when start train")
 args = parse.parse_args()
 
 n_worker = args.num_agents
@@ -37,7 +38,7 @@ dataloader = Dataloader(buffer, lmdb_op, worker_num=n_loader, batch_size=batch_s
 opt = ray.remote(Optimizer).options(num_gpus=0.3).remote(dataloader, env_name, suffix=suffix, iter_steps=n_iter, update_period=10000, lr=lr)
 glog = SummaryWriter("./logdir/{}/{}/{}.lr{}.batch{}".format(env_name, suffix, Optimizer.__name__, lr, batch_size))
 
-engine = Engine(opt, workers, test_worker, buffer, glog, speed)
+engine = Engine(opt, workers, test_worker, buffer, glog, speed, replay_start=args.replay_start)
 
 engine.reset()
 while 1:

@@ -8,8 +8,11 @@ import time
 import schedule
 sys.path.append("./")
 from network.backbone import BasicNet
+from policy_optimizer import Optimizer
 from network.dqn import DQN
+from utils.dataloader import tnx2batch, batch4net
 from utils.atari_wrapper import wrap_rainbow
+
 """
 Transition = {"state": np.array, "action": int, "next_state": np.array, "reward": float, "done": logical}
 """
@@ -58,7 +61,7 @@ class BasicWorker():
             if self.save_count % self.save_interval == 0:
                 if len(self.sche):
                     self.sche.wait()
-                self.sche.add(None, self.db_write, db=self.db, data=self.cache)
+                self.sche.add(None, self.db_write, db=self.db, data=self.cache, prior=self.prior(self.cache))
                 self.cache.clear()
                 self.save_count = 0
         self.info["episod_rw"] = episod_rw
@@ -119,11 +122,15 @@ class BasicWorker():
 
     def load(self):
         raise NotImplementedError
+
+    def prior(self, data):
+        return None
         
 
 class DQN_Worker(BasicWorker):
     def __init__(self, env_name="PongNoFrameskip-v4", arch=DQN, backbone=BasicNet, cuda=True,
-                save_interval=1000, max_steps=100000, phase="train", db=None, db_write=None, suffix="default"):
+                save_interval=1000, max_steps=100000, phase="train", db=None, db_write=None, 
+                suffix="default", write_prior=False, **kwargs):
         super(DQN_Worker, self).__init__(env_name, save_interval, max_steps, phase, db, db_write, suffix)
         self.shape = self._shape()
         self.na = self._na()
@@ -131,6 +138,14 @@ class DQN_Worker(BasicWorker):
         self.alg.cuda() if cuda == True else None
         self.cuda = cuda
         self.eps = 0
+        self.write_prior=write_prior
+        if write_prior:
+            self.target = arch(self.shape, self.na, backbone).eval()
+            self.target.cuda() if cuda == True else None
+            assert "discount" in kwargs and isinstance(kwargs["discount"], float)
+            self.discount = kwargs["discount"]
+            assert "optimizer" in kwargs and isinstance(kwargs["optimizer"], Optimizer) 
+            self.optimizer = kwargs["optimizer"]
 
     def _action(self, eps=None):
         eps = self.eps if eps is None else eps
@@ -143,12 +158,30 @@ class DQN_Worker(BasicWorker):
 
     def update(self, state_dict=None, eps=None):
         if state_dict is not None:
+            # p, t = state_dict
             self.alg.load_state_dict(state_dict)
+            # if self.write_prior:
+            #     self.target.load_state_dict(t)
         if eps is not None:
             self.eps = eps
 
     def load(self, path):
         self.alg.load_state_dict(torch.load(path))
+
+    def prior(self, data):
+        if self.write_prior == False:
+            return None
+        else:
+            p = []
+            for batch in tnx2batch(data, 512):
+                batch = batch4net(batch)
+                with troch.no_grad:
+                    td_err = self.optimizer.td_err(self.alg, self.target, **data)
+                    p += td_err.cpu().numpy().tolist()
+            return p
+                
+            
+
         
 
 
