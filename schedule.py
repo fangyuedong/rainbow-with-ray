@@ -50,7 +50,7 @@ class Sched():
 
 
 class Engine():
-    def __init__(self, opt, exec_workers, test_worker, replay_buff, glog, speed=8, update_period=10, replay_start=100000):
+    def __init__(self, opt, exec_workers, test_worker, replay_buff, glog, speed=8, update_period=0, replay_start=100000):
         assert isinstance(opt, ray.actor.ActorHandle)
         assert isinstance(test_worker, ray.actor.ActorHandle)
         assert isinstance(replay_buff, ray.actor.ActorHandle)
@@ -84,7 +84,7 @@ class Engine():
         return eps
     
     def get_exec_worker_param(self):
-        if self.opt_steps - self.opt_steps_exec > self.update_period:
+        if self.opt_steps - self.opt_steps_exec >= self.update_period:
             self.newest_p = self.sche.add(self.opt, "__call__")
             self.opt_steps_exec = self.opt_steps
         return self.newest_p
