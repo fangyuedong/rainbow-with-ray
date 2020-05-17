@@ -57,10 +57,11 @@ class Optimizer():
         sum_loss = 0
         for i, (data, check_id, idx, p) in enumerate(self.dataloader):
             data = batch4net(data, self.cuda)
-            IS = None
             if self.prior:
-                IS = (self.N * torch.from_numpy(p).cuda().float()).pow(-self.beta)
+                IS = (self.N * torch.from_numpy(p).cuda().float())
                 IS = IS / IS.mean()
+            else:
+                IS = None
             loss, td_err = self.loss_fn(**data, IS=IS)
             if self.prior:
                 self.dataloader.update(idx, td_err.cpu().numpy().tolist(), check_id)
@@ -89,14 +90,17 @@ class Optimizer():
     def loss_fn(self, state, action, next_state, reward, done, IS=None):
         err = self.td_err(self.policy, self.target, state, action, next_state, reward, done, self.discount)
         if IS is not None:
-            loss = troch.mean(smooth_l1_loss(err) * IS)
+            loss = torch.mean(smooth_l1_loss(err) * IS)
         else:
             loss = torch.mean(smooth_l1_loss(err))
         return loss, err.detach()
 
     def __call__(self):
         """return policy params"""
-        return self.policy.state_dict()
+        state = {}
+        state["policy"] = self.policy.state_dict()
+        state["target"] = self.target.state_dict()
+        return state
 
     def save(self):
         path = os.path.join(self.save_path, "iter_{:0>6d}K.pkl".format(self.total_opt_steps))

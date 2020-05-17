@@ -8,7 +8,7 @@ sys.path.append("./")
 from utils.mmdb import Mmdb
 
 class SegTree():
-    def __init__(self, max_num=1000**2, alpha=0.6, maxp=None):
+    def __init__(self, max_num=1000**2, alpha=1.0, maxp=None):
         self.max_num = max_num
         self.alpha = alpha
         self.index = 0
@@ -80,7 +80,7 @@ class Pmdb():
 
     def write(self, data, prior=None):
         assert not prior or not self.maxp
-        if not prior and self.maxp:
+        if prior is None and self.maxp:
             prior = [self.maxp for _ in range(len(data))]
         self.mmdb.write(data)
         self.tree.append(prior)

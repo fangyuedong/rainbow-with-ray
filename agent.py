@@ -158,10 +158,9 @@ class DQN_Worker(BasicWorker):
 
     def update(self, state_dict=None, eps=None):
         if state_dict is not None:
-            # p, t = state_dict
-            self.alg.load_state_dict(state_dict)
-            # if self.write_prior:
-            #     self.target.load_state_dict(t)
+            self.alg.load_state_dict(state_dict["policy"])
+            if self.write_prior:
+                self.target.load_state_dict(state_dict["target"])
         if eps is not None:
             self.eps = eps
 

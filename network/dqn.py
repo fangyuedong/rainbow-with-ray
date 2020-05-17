@@ -47,7 +47,7 @@ class DQN(nn.Module):
     #     if IS is None:
     #         return F.smooth_l1_loss(x, target), (x - target).abs().detach()
     #     else:
-            return torch.mean(F.smooth_l1_loss(x, target, reduction="none") * IS), (x - target).abs().detach()
+            # return torch.mean(F.smooth_l1_loss(x, target, reduction="none") * IS), (x - target).abs().detach()
     @staticmethod
     def td_err(x, target):
         return (x - target).abs()
