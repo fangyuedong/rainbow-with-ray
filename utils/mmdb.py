@@ -66,20 +66,26 @@ class Mmdb():
 def mmdb_init(path, cap=1000000):
     return ray.remote(Mmdb).remote(cap, mm_count=len)
 
-def mmdb_write(db, data):
+def mmdb_write(db, data, compress=True):
     if not isinstance(data, (list, tuple)):
         data = [data]
-    zip_data = [gzip.compress(pkl.dumps(x), 7) for x in data]
+    if compress:
+        zip_data = [gzip.compress(pkl.dumps(x), 7) for x in data]
+    else:
+        zip_data = data
     assert isinstance(db, ray.actor.ActorHandle) and \
         db._ray_actor_creation_function_descriptor.class_name == "Mmdb"
     tsk = db.write.remote(zip_data)
     ray.wait([tsk])
 
-def mmdb_read(db, idxs):
+def mmdb_read(db, idxs, decompress=True):
     assert isinstance(db, ray.actor.ActorHandle) and \
         db._ray_actor_creation_function_descriptor.class_name == "Mmdb"
     zip_data, data_id, idx = ray.get(db.read.remote(idxs))
-    data = [pkl.loads(gzip.decompress(x)) for x in zip_data]
+    if decompress:
+        data = [pkl.loads(gzip.decompress(x)) for x in zip_data]
+    else:
+        data = zip_data
     return data, data_id, idx
 
 def mmdb_sample(db, nb=None, shullfer=True):
