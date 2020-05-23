@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 class BasicNet(nn.Module):
-    def __init__(self, shape, na):
+    def __init__(self, shape, na, norm=True):
         """
         shape: observation shape
         na:    action number
@@ -12,14 +12,28 @@ class BasicNet(nn.Module):
         super(BasicNet, self).__init__()
         self.shape = shape
         self.na = na
-        self.convs = nn.Sequential(
-            nn.Conv2d(shape[0], 32, 8, 4),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(32, 64, 4, 2),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(64, 64, 3, 1),
-            nn.ReLU(inplace=True)
-        )
+        if norm:
+            self.convs = nn.Sequential(
+                nn.Conv2d(shape[0], 32, 8, 4),
+                nn.GroupNorm(16, 32),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(32, 64, 4, 2),
+                nn.GroupNorm(16, 64),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(64, 64, 3, 1),
+                nn.GroupNorm(16, 64),
+                nn.ReLU(inplace=True)
+            )
+        else:
+            self.convs = nn.Sequential(
+                nn.Conv2d(shape[0], 32, 8, 4),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(32, 64, 4, 2),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(64, 64, 3, 1),
+                nn.ReLU(inplace=True)
+            )
+
     
     def forward(self, x):
         return self.convs(x)
@@ -28,5 +42,4 @@ class BasicNet(nn.Module):
         x = torch.zeros((1,) + self.shape, dtype=torch.float)
         y = self.convs(x)
         return np.prod(y.shape)
-
     
