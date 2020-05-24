@@ -71,9 +71,9 @@ def default_func(db, nb):
     return idxs
 
 class Pmdb():
-    def __init__(self, cap=1000000, memory_limit=3*1024**3, mm_count=None, sample_func=default_func, maxp=None):
+    def __init__(self, cap=1000000, memory_limit=3*1024**3, mm_count=None, sample_func=default_func, alpha=1.0, maxp=None):
         self.mmdb = Mmdb(cap, memory_limit, mm_count)
-        self.tree = SegTree(cap, maxp=maxp)
+        self.tree = SegTree(cap, alpha=alpha, maxp=maxp)
         self.sample_func = sample_func
         self.maxp = maxp
         assert len(self.mmdb) == len(self.tree)
@@ -108,8 +108,8 @@ class Pmdb():
         config = self.mmdb.config()
         return config
 
-def pmdb_init(path, cap=1000000):
-    return ray.remote(Pmdb).remote(cap, mm_count=len, maxp=1.0)
+def pmdb_init(path, cap=1000000, alpha=1.0, maxp=1.0):
+    return ray.remote(Pmdb).remote(cap, mm_count=len, alpha=alpha, maxp=maxp)
 
 def pmdb_write(db, data, prior=None):
     if not isinstance(data, (list, tuple)):

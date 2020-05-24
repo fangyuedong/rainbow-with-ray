@@ -72,7 +72,7 @@ class Mmdb():
         config["cap"] = self.cap
         return config
 
-def mmdb_init(path, cap=1000000):
+def mmdb_init(path, cap=1000000, **kwargs):
     return ray.remote(Mmdb).remote(cap, mm_count=len)
 
 def mmdb_write(db, data, **kwargs):

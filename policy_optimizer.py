@@ -23,7 +23,6 @@ class Optimizer():
         discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
         assert isinstance(dataloader, Dataloader)
         self.dataloader = dataloader
-        self.beta = 0.4
         self.env = wrap_rainbow(gym.make(env_name), swap=True, phase="train")
         self.shape, self.na = self.env.observation_space.shape, self.env.action_space.n
         self.policy = arch(self.shape, self.na, backbone).train()
@@ -32,6 +31,8 @@ class Optimizer():
         self.policy.cuda(), self.target.cuda() if cuda else None
         self.cuda = cuda
         self.prior = (self.dataloader.dataset._ray_actor_creation_function_descriptor.class_name == "Pmdb")
+        if self.prior:
+            self.beta = 0.0 if "beta" not in kwargs else kwargs["beta"]
         self.N = ray.get(self.dataloader.dataset.config.remote())["cap"]
         self.normalizer = torch.tensor(0).float().cuda()
         if optimizer == torch.optim.Adam:
@@ -57,8 +58,8 @@ class Optimizer():
         sum_loss = 0
         for i, (data, check_id, idx, p) in enumerate(self.dataloader):
             data = batch4net(data, self.cuda)
-            if self.prior:
-                IS = (self.N * torch.from_numpy(p).cuda().float())
+            if self.prior and self.beta > 0:
+                IS = (self.N * torch.from_numpy(p).cuda().float()).pow(-self.beta)
                 IS = IS / IS.mean()
             else:
                 IS = None
