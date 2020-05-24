@@ -111,19 +111,25 @@ class Pmdb():
 def pmdb_init(path, cap=1000000, alpha=1.0, maxp=1.0):
     return ray.remote(Pmdb).remote(cap, mm_count=len, alpha=alpha, maxp=maxp)
 
-def pmdb_write(db, data, prior=None):
+def pmdb_write(db, data, prior=None, compress=True):
     if not isinstance(data, (list, tuple)):
         data = [data]
-    zip_data = [gzip.compress(pkl.dumps(x), 7) for x in data]
+    if compress:
+        zip_data = [gzip.compress(pkl.dumps(x), 7) for x in data]
+    else:
+        zip_data = data
     assert isinstance(db, ray.actor.ActorHandle) and \
         db._ray_actor_creation_function_descriptor.class_name == "Pmdb"
     ray.get(db.write.remote(zip_data, prior))
 
-def pmdb_read(db, idxs):
+def pmdb_read(db, idxs, decompress=True):
     assert isinstance(db, ray.actor.ActorHandle) and \
         db._ray_actor_creation_function_descriptor.class_name == "Pmdb"
     zip_data, data_id, idx = ray.get(db.read.remote(idxs))
-    data = [pkl.loads(gzip.decompress(x)) for x in zip_data]
+    if decompress:
+        data = [pkl.loads(gzip.decompress(x)) for x in zip_data]
+    else:
+        data = zip_data
     return data, data_id, idx
 
 def pmdb_sample(db, nb, **kwargs):

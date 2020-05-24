@@ -1,4 +1,4 @@
-import sys
+import sys, os
 import unittest 
 import time
 import ray
@@ -8,9 +8,16 @@ sys.path.append("./")
 from utils.replay_buffer import pmdb_op as db_op
 from utils.dataloader import Dataloader
 from agent import BasicWorker, DQN_Worker
-from policy_optimizer import Optimizer
+from policy_optimizer import DDQN_Opt as Optimizer
 import torch
+import pickle
 
+# def load_pkl():
+#     path = "test_convengence.pkl"
+#     if os.path.exists(path):
+#         return pkl.load(path)
+#     else:
+#         return None
 class TestCase(unittest.TestCase):
 
     def test_train(self):
@@ -33,9 +40,30 @@ class TestCase(unittest.TestCase):
                 if opt_info["opt_steps"] == 10000:
                     break
         db_op.clean(buffer)
-            
 
-    
+    def test_convengence(self):
+        buffer = db_op.init("./ut_lmdb_l")
+        if not os.path.exists("data.pkl"):
+            data = []
+            exc_worker = DQN_Worker(db=buffer, db_write=db_op.write)    
+            exc_worker.update(None, 1.0)
+            while db_op.len(buffer) < 1000000:
+                next(exc_worker)
+                print(db_op.len(buffer))
+            for i in range(1000000):
+                data += db_op.read(buffer, i, decompress=False)
+            with open("data.pkl", "wb") as fo:
+                pickle.dump(data, fo)
+        else:
+            with open("data.pkl", "rb") as fo:
+                data = pickle.load(fo, encoding='bytes')
+            db_op.write(buffer, data[0::3], compress=False)
+
+        dataloader = Dataloader(buffer, db_op, batch_size=256, worker_num=4, batch_num=5)  
+        opt = Optimizer(dataloader, iter_steps=5, update_period=10000, lr=0.625e-4)
+        while 1:
+            opt_info = next(opt)
+            print("loss {} @ step {} with buff {}".format(opt_info["loss"], opt_info["opt_steps"], db_op.len(buffer)))
  
 #提供名为suite()的全局方法，PyUnit在执行测试的过程调用suit()方法来确定有多少个测试用例需要被执行，
 #可以将TestSuite看成是包含所有测试用例的一个容器。
@@ -43,6 +71,7 @@ def suite():
     ray.init()
     suite = unittest.TestSuite()
     suite.addTest(TestCase("test_train"))
+    suite.addTest(TestCase("test_convengence"))
     
     return suite
 

@@ -94,14 +94,17 @@ class Engine():
             self.sche.add(self.opt, "__next__")
 
     def add_exec_work(self, handle):
+        self.sche.add(handle, "__next__")
+
+    def add_exec_work_update(self, handle):
         p, eps = self.get_exec_worker_param(), self.get_eps()
         self.sche.add(handle, "update", state_dict=p, eps=eps)
-        self.sche.add(handle, "__next__")
 
     def add_test_work(self):
         if (not self.sche.have(self.test_worker, "__next__")) and self.opt_steps // 10000 - self.opt_steps_test // 10000 == 1:
             tsk_id = self.sche.add(self.opt, "save")
-            self.sche.add(self.test_worker, "load", path=tsk_id)
+            tsk_id = self.sche.add(self.test_worker, "load", path=tsk_id)
+            ray.wait([tsk_id])
             self.sche.add(self.test_worker, "__next__")
             self.opt_steps_test = self.opt_steps
 
@@ -112,9 +115,13 @@ class Engine():
             self.glog.add_scalar("rw/{}".format(self.worker_id[tsk_info.handle]), info["episod_rw"], info["total_env_steps"])
             self.glog.add_scalar("real_rw/{}".format(self.worker_id[tsk_info.handle]), info["episod_real_rw"], info["total_env_steps"])
             self.env_steps += info["episod_len"]  
-            # print(self.env_steps)  
             return True
-        return False        
+        return False     
+
+    def check_exec_worker_update(self, tsk_info, tsk_id):
+        if tsk_info.handle in self.exec_workers and tsk_info.method == "update":
+            return True
+        return False
 
     def check_opt_done(self, tsk_info, tsk_id):
         if tsk_info.handle == self.opt and tsk_info.method == "__next__":
@@ -137,6 +144,8 @@ class Engine():
         tsk_dones, infos = self.sche.wait()
         tsk_done, info = tsk_dones[0], infos[0]
         if self.check_exec_worker_done(info, tsk_done):
+            self.add_exec_work_update(info.handle)
+        if self.check_exec_worker_update(info, tsk_done):
             self.add_exec_work(info.handle)
         self.check_test_work_done(info, tsk_done)
         self.check_opt_done(info, tsk_done)
