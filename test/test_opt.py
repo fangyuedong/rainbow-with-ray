@@ -57,7 +57,7 @@ class TestCase(unittest.TestCase):
         else:
             with open("data.pkl", "rb") as fo:
                 data = pickle.load(fo, encoding='bytes')
-            db_op.write(buffer, data[0::3], compress=False)
+            db_op.write(buffer, data[0::4], compress=False)
 
         dataloader = Dataloader(buffer, db_op, batch_size=256, worker_num=4, batch_num=5)  
         opt = Optimizer(dataloader, iter_steps=5, update_period=10000, lr=0.625e-4)
