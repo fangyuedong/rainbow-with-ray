@@ -10,6 +10,8 @@ from network.dqn import DQN
 from utils.dataloader import Dataloader, batch4net
 from utils.atari_wrapper import wrap_rainbow
 
+torch.backends.cudnn.benchmark = True
+
 """
 Transition = {"state": np.array, "action": int, "next_state": np.array, "reward": float, "done": logical}
 """
