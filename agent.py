@@ -10,6 +10,9 @@ sys.path.append("./")
 from network.backbone import BasicNet
 from network.dqn import DQN
 from utils.atari_wrapper import wrap_rainbow
+
+torch.backends.cudnn.benchmark = True
+
 """
 Transition = {"state": np.array, "action": int, "next_state": np.array, "reward": float, "done": logical}
 """
