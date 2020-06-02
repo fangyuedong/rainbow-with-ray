@@ -36,8 +36,12 @@ speed = args.speed
 n_iter = 40*32//batch_size
 ray.init(num_cpus=1+2*n_worker+n_loader, object_store_memory=2*1024**3, memory=8*1024**3)
 
-buffer = lmdb_op.init(buffer)
-workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
+alpha = 0.6 if args.buffer == "pmdb" else 1.0
+write_prior = True if args.buffer == "pmdb" else False
+
+buffer = lmdb_op.init(buffer, alpha=alpha)
+workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, db=buffer, db_write=lmdb_op.write, \
+    write_prior=write_prior, discount=0.99, optimizer=Optimizer) for _ in range(n_worker)]
 test_worker = ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, phase="test", suffix=suffix)
 dataloader = Dataloader(buffer, lmdb_op, worker_num=n_loader, batch_size=batch_size, batch_num=n_iter)
 opt = ray.remote(Optimizer).options(num_gpus=0.2).remote(dataloader, env_name, suffix=suffix, iter_steps=n_iter, update_period=10000, lr=lr)

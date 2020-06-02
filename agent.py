@@ -131,7 +131,7 @@ class BasicWorker():
 
 class DQN_Worker(BasicWorker):
     def __init__(self, env_name="PongNoFrameskip-v4", arch=DQN, backbone=BasicNet, cuda=True,
-                save_interval=1000, max_steps=100000, phase="train", db=None, db_write=None, 
+                save_interval=1000, max_steps=100000, phase="train", db=None, db_write=None,
                 suffix="default", write_prior=False, **kwargs):
         super(DQN_Worker, self).__init__(env_name, save_interval, max_steps, phase, db, db_write, suffix)
         self.shape = self._shape()
@@ -146,7 +146,7 @@ class DQN_Worker(BasicWorker):
             self.target.cuda() if cuda == True else None
             assert "discount" in kwargs and isinstance(kwargs["discount"], float)
             self.discount = kwargs["discount"]
-            assert "optimizer" in kwargs and isinstance(kwargs["optimizer"], Optimizer) 
+            # assert "optimizer" in kwargs and isinstance(kwargs["optimizer"], (policy_optimizer.DQN_Opt, policy_optimizer.DDQN_Opt))
             self.optimizer = kwargs["optimizer"]
 
     def _action(self, eps=None):
@@ -176,8 +176,8 @@ class DQN_Worker(BasicWorker):
             p = []
             for batch in tnx2batch(data, 512):
                 batch = batch4net(batch)
-                with troch.no_grad:
-                    td_err = self.optimizer.td_err(self.alg, self.target, **data)
+                with torch.no_grad():
+                    td_err = self.optimizer.td_err(self.alg, self.target, **batch, discount=self.discount)
                     p += td_err.cpu().numpy().tolist()
             return p
                 

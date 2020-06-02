@@ -79,7 +79,7 @@ class Pmdb():
         assert len(self.mmdb) == len(self.tree)
 
     def write(self, data, prior=None):
-        assert not prior or not self.maxp
+        assert prior or self.maxp, "{}_{}".format(prior, self.maxp)
         if prior is None and self.maxp:
             prior = [self.maxp for _ in range(len(data))]
         self.mmdb.write(data)

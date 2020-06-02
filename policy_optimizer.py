@@ -137,3 +137,4 @@ class DDQN_Opt(DQN_Opt):
         q_v = policy.value(state, action)
         assert q_v.shape == tar_v.shape
         return policy.td_err(q_v, tar_v)
+        
