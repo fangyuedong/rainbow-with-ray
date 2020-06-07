@@ -137,11 +137,12 @@ class DQN_Worker(BasicWorker):
 
     def _action(self, eps=None):
         eps = self.eps if eps is None else eps
-        with torch.no_grad():
-            ob = torch.from_numpy(self.ob).cuda().float() if self.cuda else torch.from_numpy(self.ob).float()
-            net_a = self.alg.action(ob).item()
-        rand_a = self.env.action_space.sample()
-        a = rand_a if random.random() < eps else net_a
+        if random.random() < eps:
+            a = self.env.action_space.sample()
+        else:
+            with torch.no_grad():
+                ob = torch.from_numpy(self.ob).cuda().float() if self.cuda else torch.from_numpy(self.ob).float()
+                a = self.alg.action(ob).item()
         return a
 
     def update(self, state_dict=None, eps=None):

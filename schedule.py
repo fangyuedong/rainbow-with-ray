@@ -76,8 +76,8 @@ class Engine():
         self.sche = Sched()
 
     def get_eps(self):
-        if self.env_steps < 100000:
-            eps = 1.0
+        if self.env_steps <= 4*1000**2:
+            eps = 1.0-0.9*self.env_steps / (4.0*1000**2)
         else:
             eps = 0.1
         return eps
