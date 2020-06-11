@@ -159,4 +159,7 @@ class Engine():
         eps = self.get_eps()
         [self.sche.add(worker, "update", state_dict=tsk_id, eps=eps) for worker in self.exec_workers]
         [self.sche.add(worker, "__next__") for worker in self.exec_workers]
+
+    def stop(self):
+        return self.env_steps < 200*1000**2
         

@@ -33,7 +33,7 @@ lr = args.lr
 suffix = args.suffix
 speed = args.speed
 n_iter = 40*32//batch_size
-ray.init(num_cpus=1+2*n_worker+n_loader, object_store_memory=2*1024**3, memory=8*1024**3)
+ray.init(num_cpus=1+2*n_worker+n_loader, object_store_memory=4*1024**3, memory=12*1024**3)
 
 buffer = lmdb_op.init(buffer)
 workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
@@ -45,8 +45,9 @@ glog = SummaryWriter("./logdir/{}/{}/{}.lr{}.batch{}".format(env_name, suffix, O
 engine = Engine(opt, workers, test_worker, buffer, glog, speed)
 
 engine.reset()
-while 1:
+while engine.stop():
     engine.step()
+
 
 
     
