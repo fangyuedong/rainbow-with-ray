@@ -18,11 +18,23 @@ A PyTorch implementation of reinforcement lerning algorithms
 ## What special compared to other implementions
 * Compressing is used before observations saved into replay buffer, so only 1~3GB RAM will be used to keep 1M history observations.
 
-## Some Result
+## Some result
 * DQN
 
 * DDQN
 
-    [Zaxxon](./exp/ddqn/Zaxxon.png)
+    | [Zaxxon](./exp/ddqn/Zaxxon.png) | [Asterix](./exp/ddqn/Asterix.png) |
+    |:-------------------------------:|:---------------------------------:|
+    |![avatar](./exp/ddqn/Zaxxon.gif) |![avatar](./exp/ddqn/Asterix.gif)  |
 
-![avatar](./exp/ddqn/Zaxxon.gif)
+## How to use
+
+* DQN with an uniform replay buffer
+
+    nohup python -u main.py Asterix --alg=DQN --buffer=mmdb --num_agents=4 --num_loaders=6 --batch_size=256 --lr=0.625e-4 --suffix="DQN" --speed=8 >train.txt 2>&1 &
+
+* DDQN with a prior replay buffer
+
+    nohup python -u main.py Asterix --alg=DDQN --buffer=pmdb --num_agents=4 --num_loaders=6 --batch_size=256 --lr=0.625e-4 --suffix="DDQN" --speed=8 >train.txt 2>&1 &
+
+
