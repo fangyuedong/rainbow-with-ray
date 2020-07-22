@@ -23,9 +23,9 @@ A PyTorch implementation of reinforcement lerning algorithms
 
 * DDQN
 
-    | [Zaxxon](./exp/ddqn/Zaxxon.png) | [Asterix](./exp/ddqn/Asterix.png) |
-    |:-------------------------------:|:---------------------------------:|
-    |![avatar](./exp/ddqn/Zaxxon.gif) |![avatar](./exp/ddqn/Asterix.gif)  |
+    | [Zaxxon](./exp/ddqn/Zaxxon.png) | [Asterix](./exp/ddqn/Asterix.png) | [WizardOfWor](./exp/ddqn/WizardOfWor.png) |
+    |:-------------------------------:|:---------------------------------:|:-----------------------------------------:|
+    |![avatar](./exp/ddqn/Zaxxon.gif) |![avatar](./exp/ddqn/Asterix.gif)  |![avatar](./exp/ddqn/WizardOfWor.gif)      |
 
 ## How to use
 
@@ -36,5 +36,9 @@ A PyTorch implementation of reinforcement lerning algorithms
 * DDQN with a prior replay buffer
 
     nohup python -u main.py Asterix --alg=DDQN --buffer=pmdb --num_agents=4 --num_loaders=6 --batch_size=256 --lr=0.625e-4 --suffix="DDQN" --speed=8 >train.txt 2>&1 &
+
+* Test with a trained model
+
+    python main.py WizardOfWor --test --suffix="DDQN_gn_normal0" --resume ./model/DQN_BasicNet/WizardOfWorNoFrameskip-v4/DDQN_gn_normal0/iter_3600000K.pkl
 
 

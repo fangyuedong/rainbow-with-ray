@@ -87,19 +87,21 @@ class MaxAndSkipEnv(gym.Wrapper):
         # most recent raw observations (for max pooling across time steps)
         self._obs_buffer = deque(maxlen=2)
         self._skip       = skip
+        self.rgbs  = []
 
     def step(self, action):
         total_reward = 0.0
         done = None
+        self.rgbs  = []
         for _ in range(self._skip):
             obs, reward, done, info = self.env.step(action)
+            self.rgbs.append(self.env.render(mode="rgb_array"))
             self._obs_buffer.append(obs)
             total_reward += reward
             if done:
                 break
 
         max_frame = np.max(np.stack(self._obs_buffer), axis=0)
-
         return max_frame, total_reward, done, info
 
     def reset(self):
@@ -108,6 +110,13 @@ class MaxAndSkipEnv(gym.Wrapper):
         obs = self.env.reset()
         self._obs_buffer.append(obs)
         return obs
+
+    def render(self, mode="rgb_array"):
+        assert mode == "rgb_array"
+        if len(self.rgbs) > 0:
+            return np.max(np.stack(self.rgbs, axis=3), axis=3)
+        else:
+            return self.env.render(mode="rgb_array")
 
 class FrameStackEnv(gym.Wrapper):
     def __init__(self, env, k):
@@ -243,12 +252,15 @@ def wrap_rainbow(env, swap=False, phase="train"):
 
 if __name__ == "__main__":
     import cv2
-    env = gym.make("AsterixNoFrameskip-v4")
+    env = gym.make("WizardOfWorNoFrameskip-v4")
     env = wrap_rainbow(env, swap=True)
     print(env.observation_space)
-    ob = env.reset()
-    for _ in range(100):
-        ob, rw, done, _ = env.step(env.action_space.sample())
-        print(ob.shape)
-        cv2.imshow("video", ob[0,:,:])
-        cv2.waitKey(25)
+    for _ in range(50):
+        ob = env.reset()
+        for _ in range(2000):
+            ob, rw, done, info = env.step(env.action_space.sample())
+            rgb = env.render(mode="rgb_array")
+            cv2.imshow("true_video", rgb[:,:,::-1])
+            cv2.waitKey(25)
+            if done:
+                break
