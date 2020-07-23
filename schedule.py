@@ -77,8 +77,8 @@ class Engine():
         self.sche = Sched()
 
     def get_eps(self):
-        if self.env_steps < self.replay_start:
-            eps = 1.0
+        if self.env_steps <= 4*1000**2:
+            eps = 1.0-0.9*self.env_steps / (4.0*1000**2)
         else:
             eps = 0.1
         return eps
@@ -158,7 +158,9 @@ class Engine():
     def reset(self):
         tsk_id = self.sche.add(self.opt, "__call__")
         eps = self.get_eps()
-        tsks = [self.sche.add(worker, "update", state_dict=tsk_id, eps=eps) for worker in self.exec_workers]
-        ray.wait(tsks, len(tsks))
-        tsks = [self.sche.add(worker, "__next__") for worker in self.exec_workers]
-        ray.wait(tsks, len(tsks))
+        [self.sche.add(worker, "update", state_dict=tsk_id, eps=eps) for worker in self.exec_workers]
+        [self.sche.add(worker, "__next__") for worker in self.exec_workers]
+
+    def stop(self):
+        return self.env_steps < 200*1000**2
+        

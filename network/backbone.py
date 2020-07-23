@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 class BasicNet(nn.Module):
-    def __init__(self, shape, na, norm="batch_norm"):
+    def __init__(self, shape, na, norm="group_norm"):
         """
         shape: observation shape
         na:    action number
@@ -28,13 +28,13 @@ class BasicNet(nn.Module):
         elif norm == "group_norm":
             self.convs = nn.Sequential(
                 nn.Conv2d(shape[0], 32, 8, 4, bias=False),
-                nn.GroupNorm(16, 32),
+                nn.GroupNorm(16, 32, affine=True),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(32, 64, 4, 2, bias=False),
-                nn.GroupNorm(16, 64),
+                nn.GroupNorm(16, 64, affine=True),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(64, 64, 3, 1, bias=False),
-                nn.GroupNorm(16, 64),
+                nn.GroupNorm(16, 64, affine=True),
                 nn.ReLU(inplace=True)
             )
         else:
