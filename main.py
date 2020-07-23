@@ -38,7 +38,7 @@ if args.test == False:
     n_iter = 40*32//batch_size
     ray.init(num_cpus=1+2*n_worker+n_loader, object_store_memory=4*1024**3, memory=12*1024**3)
 
-    buffer = lmdb_op.init(buffer)
+    buffer = lmdb_op.init(buffer, alpha=0.5)
     workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
     test_worker = ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, phase="test", suffix=suffix)
     dataloader = Dataloader(buffer, lmdb_op, worker_num=n_loader, batch_size=batch_size, batch_num=n_iter)

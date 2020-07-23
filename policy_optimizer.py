@@ -34,7 +34,8 @@ class Optimizer():
         self.cuda = cuda
         self.prior = (self.dataloader.dataset._ray_actor_creation_function_descriptor.class_name == "Pmdb")
         if self.prior:
-            self.beta = 0.0 if "beta" not in kwargs else kwargs["beta"]
+            self.beta = lambda x: 0.4+0.6*x/6.25e6 if "beta" not in kwargs else kwargs["beta"]
+            self.max_IS = 0
         self.N = ray.get(self.dataloader.dataset.config.remote())["cap"]
         self.normalizer = torch.tensor(0).float().cuda()
         if optimizer == torch.optim.Adam:
@@ -60,9 +61,10 @@ class Optimizer():
         sum_loss = 0
         for i, (data, check_id, idx, p) in enumerate(self.dataloader):
             data = batch4net(data, self.cuda)
-            if self.prior and self.beta > 0:
-                IS = (self.N * torch.from_numpy(p).cuda().float()).pow(-self.beta)
-                IS = IS / IS.mean()
+            if self.prior:
+                IS = (self.N * torch.from_numpy(p).cuda().float()).pow(-self.beta(self.total_opt_steps))
+                self.max_IS = max(self.max_IS, IS.max().item())
+                IS = IS / self.max_IS
             else:
                 IS = None
             loss, td_err = self.loss_fn(**data, IS=IS)
