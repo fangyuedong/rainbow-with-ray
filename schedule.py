@@ -101,7 +101,7 @@ class Engine():
         self.sche.add(handle, "update", state_dict=p, eps=eps)
 
     def add_test_work(self):
-        if (not self.sche.have(self.test_worker, "__next__")) and self.opt_steps // 10000 - self.opt_steps_test // 10000 == 1:
+        if (not self.sche.have(self.test_worker, "__next__")) and self.opt_steps // 100000 - self.opt_steps_test // 100000 == 1:
             tsk_id = self.sche.add(self.opt, "save")
             tsk_id = self.sche.add(self.test_worker, "load", path=tsk_id)
             ray.wait([tsk_id])

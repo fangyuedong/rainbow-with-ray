@@ -19,7 +19,7 @@ class SegTree():
 
     def _propagate(self, idx, value):
         parent = idx
-        value += 1e-8
+        value += 1e-4
         self.sum_tree[parent] = value**self.alpha if self.maxp==None else min(value**self.alpha, self.maxp)
         while parent > 0:
             parent = (parent-1)//2

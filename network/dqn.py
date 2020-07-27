@@ -51,12 +51,11 @@ class DQN(nn.Module):
         x = self.forward(x)
         assert a is None or x.ndim == a.ndim+1, "x.ndim{} is not compatible with a.ndim{}".format(x.ndim, a.ndim)
         return x.max(x.ndim-1)[0] if a is None else x.gather(x.ndim-1, a.unsqueeze(a.ndim)).squeeze(a.ndim)
+    
+    def value_action(self, x):
+        x = self.forward(x)
+        return x, x.max(x.ndim-1)[1]
 
-    # def loss_fn(self, x, target, IS=None):
-    #     if IS is None:
-    #         return F.smooth_l1_loss(x, target), (x - target).abs().detach()
-    #     else:
-            # return torch.mean(F.smooth_l1_loss(x, target, reduction="none") * IS), (x - target).abs().detach()
     @staticmethod
     def td_err(x, target):
         return (x - target).abs()

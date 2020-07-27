@@ -41,7 +41,7 @@ class Optimizer():
         if optimizer == torch.optim.Adam:
             kwargs.update({"lr": 1e-4}) if "lr" not in kwargs else None
             kwargs.update({"weight_decay": 5e-5}) if "weight_decay" not in kwargs else None
-            kwargs.update({"eps": 1e-8}) if "eps" not in kwargs else None
+            kwargs.update({"eps": 1.5e-4}) if "eps" not in kwargs else None
         self.optimizer = optimizer(self.policy.parameters(), **kwargs)
         self.iter_steps = iter_steps
         self.discount = discount
@@ -62,23 +62,25 @@ class Optimizer():
         for i, (data, check_id, idx, p) in enumerate(self.dataloader):
             data = batch4net(data, self.cuda)
             if self.prior:
-                IS = (self.N * torch.from_numpy(p).cuda().float()).pow(-self.beta(self.total_opt_steps))
-                self.max_IS = max(self.max_IS, IS.max().item())
+                IS = (self.N * torch.from_numpy(p).cuda()).pow(-self.beta(self.total_opt_steps))
+                self.max_IS = IS.mean()
                 IS = IS / self.max_IS
+                if self.total_opt_steps % 1000 == 0:
+                    print(IS)
             else:
                 IS = None
             loss, td_err = self.loss_fn(**data, IS=IS)
             if self.prior:
-                self.dataloader.update(idx, td_err.cpu().numpy().tolist(), check_id)
+                self.dataloader.update(idx, td_err.cpu().tolist(), check_id)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
             self.total_opt_steps += 1
-            sum_loss += loss.item()
+            sum_loss += loss
             self.update_target() if self.total_opt_steps % self.update_period == 0 else None
             if i == period - 1:
                 self.info["opt_steps"] = self.total_opt_steps
-                self.info["loss"] = sum_loss / (i+1)
+                self.info["loss"] = sum_loss.item() / (i+1)
                 return self.info
 
     def update_target(self):

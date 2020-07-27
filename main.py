@@ -1,5 +1,5 @@
 from schedule import Sched, Engine
-from agent import DQN_Worker
+from agent import DQN_Worker, PriorDQN_Worker
 import policy_optimizer #import DDQN_Opt as Optimizer
 from utils.dataloader import Dataloader
 import utils.replay_buffer #import mmdb_op as lmdb_op
@@ -36,10 +36,11 @@ if args.test == False:
     suffix = args.suffix
     speed = args.speed
     n_iter = 40*32//batch_size
+    write_prior = (args.buffer == "pmdb")
     ray.init(num_cpus=1+2*n_worker+n_loader, object_store_memory=4*1024**3, memory=12*1024**3)
 
     buffer = lmdb_op.init(buffer, alpha=0.5)
-    workers = [ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
+    workers = [ray.remote(PriorDQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
     test_worker = ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, phase="test", suffix=suffix)
     dataloader = Dataloader(buffer, lmdb_op, worker_num=n_loader, batch_size=batch_size, batch_num=n_iter)
     opt = ray.remote(Optimizer).options(num_gpus=0.2).remote(dataloader, env_name, suffix=suffix, iter_steps=n_iter, update_period=10000, lr=lr)
