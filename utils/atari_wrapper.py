@@ -81,21 +81,24 @@ class EpisodicLifeEnv(gym.Wrapper):
         return obs
 
 class MaxAndSkipEnv(gym.Wrapper):
-    def __init__(self, env=None, skip=4):
+    def __init__(self, env=None, skip=4, phase="train"):
         """Return only every `skip`-th frame"""
         super(MaxAndSkipEnv, self).__init__(env)
+        assert phase in ["train", "test"]
         # most recent raw observations (for max pooling across time steps)
         self._obs_buffer = deque(maxlen=2)
         self._skip       = skip
-        self.rgbs  = []
+        self.phase = phase
+        self._rgbs_buffer = deque(maxlen=2)
 
     def step(self, action):
         total_reward = 0.0
         done = None
-        self.rgbs  = []
+        self._rgbs_buffer.clear()
         for _ in range(self._skip):
             obs, reward, done, info = self.env.step(action)
-            self.rgbs.append(self.env.render(mode="rgb_array"))
+            if self.phase == "test":
+                self._rgbs_buffer.append(self.env.render(mode="rgb_array"))
             self._obs_buffer.append(obs)
             total_reward += reward
             if done:
@@ -107,14 +110,15 @@ class MaxAndSkipEnv(gym.Wrapper):
     def reset(self):
         """Clear past frame buffer and init. to first obs. from inner env."""
         self._obs_buffer.clear()
+        self._rgbs_buffer.clear()
         obs = self.env.reset()
         self._obs_buffer.append(obs)
         return obs
 
     def render(self, mode="rgb_array"):
         assert mode == "rgb_array"
-        if len(self.rgbs) > 0:
-            return np.max(np.stack(self.rgbs, axis=3), axis=3)
+        if len(self._rgbs_buffer) > 0 and self.phase == "test":
+            return np.max(np.stack(self._rgbs_buffer, axis=3), axis=3)
         else:
             return self.env.render(mode="rgb_array")
 
@@ -216,7 +220,7 @@ class SwapChn(gym.Wrapper):
 def wrap_deepmind_ram(env):
     env = EpisodicLifeEnv(env)
     env = NoopResetEnv(env, noop_max=30)
-    env = MaxAndSkipEnv(env, skip=4)
+    env = MaxAndSkipEnv(env, skip=4, phase=phase)
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetEnv(env)
     env = ClippedRewardsWrapper(env)
@@ -226,7 +230,7 @@ def wrap_deepmind(env, phase="train"):
     assert 'NoFrameskip' in env.spec.id
     env = EpisodicLifeEnv(env)
     env = NoopResetEnv(env, noop_max=30)
-    env = MaxAndSkipEnv(env, skip=4)
+    env = MaxAndSkipEnv(env, skip=4, phase=phase)
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetEnv(env)
     env = ProcessFrame84(env)
@@ -242,7 +246,7 @@ def wrap_rainbow(env, swap=False, phase="train"):
     if 'FIRE' in env.unwrapped.get_action_meanings():
         env = FireResetEnv(env)
     env = ProcessFrame84(env)
-    env = MaxAndSkipEnv(env, skip=4)
+    env = MaxAndSkipEnv(env, skip=4, phase=phase)
     env = FrameStackEnv(env, k=4)
     if phase == "train":
         env = ClippedRewardsWrapper(env)
@@ -253,7 +257,7 @@ def wrap_rainbow(env, swap=False, phase="train"):
 if __name__ == "__main__":
     import cv2
     env = gym.make("WizardOfWorNoFrameskip-v4")
-    env = wrap_rainbow(env, swap=True)
+    env = wrap_rainbow(env, swap=True, phase="test")
     print(env.observation_space)
     for _ in range(50):
         ob = env.reset()

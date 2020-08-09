@@ -1,6 +1,7 @@
 import os, sys
 import math
 import random
+import numpy as np
 import gzip
 import pickle as pkl
 import ray
@@ -8,7 +9,7 @@ sys.path.append("./")
 from utils.mmdb import Mmdb
 
 class SegTree():
-    def __init__(self, max_num=1000**2, alpha=1.0, maxp=None):
+    def __init__(self, max_num=1000**2, alpha=1.0, maxp=1.0):
         self.max_num = max_num
         self.alpha = alpha
         self.index = 0
@@ -19,7 +20,7 @@ class SegTree():
 
     def _propagate(self, idx, value):
         parent = idx
-        value += 1e-4
+        value += 1e-6
         self.sum_tree[parent] = value**self.alpha if self.maxp==None else min(value**self.alpha, self.maxp)
         while parent > 0:
             parent = (parent-1)//2
@@ -66,7 +67,8 @@ class SegTree():
 def default_func(db, nb):
     assert isinstance(db, Pmdb)
     total = db.tree.total()
-    values = [(random.random() + i) * total / nb for i in range(nb)]
+    # values = [(random.random() + i) * total / nb for i in range(nb)]
+    values = [random.random() * total for _ in range(nb)]
     idxs = db.tree.find(values)
     return idxs
 
@@ -93,6 +95,8 @@ class Pmdb():
         idxs = self.sample_func(self, nb)
         total = self.tree.total()
         ps = [self.tree[idx]/total for idx in idxs]
+        # idxs = np.random.randint(low=0, high=len(self), size=nb).tolist()
+        # ps = [1.0/len(self)] * nb
         return self.read(idxs) + (ps,)
 
     def update(self, idxs, priors, check_ids):
@@ -106,6 +110,7 @@ class Pmdb():
 
     def config(self):
         config = self.mmdb.config()
+        config["total"] = self.tree.total()
         return config
 
 def pmdb_init(path, cap=1000000, alpha=1.0, maxp=1.0):

@@ -55,7 +55,7 @@ class Optimizer():
     def __iter__(self):
         return self
 
-    def __next__(self, opt_steps=None):
+    def __next__(self, opt_steps=None, backprop=True):
         """iter and return policy params"""
         period = self.iter_steps if opt_steps == None else opt_steps
         sum_loss = 0
@@ -70,11 +70,14 @@ class Optimizer():
             else:
                 IS = None
             loss, td_err = self.loss_fn(**data, IS=IS)
+            if self.total_opt_steps % 1000 == 0:
+                print(td_err)
             if self.prior:
                 self.dataloader.update(idx, td_err.cpu().tolist(), check_id)
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            if backprop:
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
             self.total_opt_steps += 1
             sum_loss += loss
             self.update_target() if self.total_opt_steps % self.update_period == 0 else None

@@ -42,10 +42,10 @@ class TestCase(unittest.TestCase):
         db_op.clean(buffer)
 
     def test_convengence(self):
-        buffer = db_op.init("./ut_lmdb_l")
+        buffer = db_op.init("./ut_lmdb_l", alpha=0.5, maxp=0.1)
         if not os.path.exists("data.pkl"):
             data = []
-            exc_worker = DQN_Worker(db=buffer, db_write=db_op.write)    
+            exc_worker = DQN_Worker(env_name="WizardOfWorNoFrameskip-v4", db=buffer, db_write=db_op.write)    
             exc_worker.update(None, 1.0)
             while db_op.len(buffer) < 1000000:
                 next(exc_worker)
@@ -57,20 +57,23 @@ class TestCase(unittest.TestCase):
         else:
             with open("data.pkl", "rb") as fo:
                 data = pickle.load(fo, encoding='bytes')
-            db_op.write(buffer, data[0::4], compress=False)
+            db_op.write(buffer, data[0::3], compress=False)
 
         dataloader = Dataloader(buffer, db_op, batch_size=256, worker_num=4, batch_num=5)  
-        opt = Optimizer(dataloader, iter_steps=5, update_period=10000, lr=0.625e-4)
+        opt = Optimizer(dataloader, env_name="WizardOfWorNoFrameskip-v4", iter_steps=5, update_period=10000, lr=0.625e-4)
         while 1:
             opt_info = next(opt)
-            print("loss {} @ step {} with buff {}".format(opt_info["loss"], opt_info["opt_steps"], db_op.len(buffer)))
+            config = db_op.config(buffer)
+            if "total" not in config:
+                config["total"] = 0
+            print("loss {} @ step {} with buff {} total {}".format(opt_info["loss"], opt_info["opt_steps"], db_op.len(buffer), config["total"]))
  
 #提供名为suite()的全局方法，PyUnit在执行测试的过程调用suit()方法来确定有多少个测试用例需要被执行，
 #可以将TestSuite看成是包含所有测试用例的一个容器。
 def suite():
     ray.init()
     suite = unittest.TestSuite()
-    suite.addTest(TestCase("test_train"))
+    # suite.addTest(TestCase("test_train"))
     suite.addTest(TestCase("test_convengence"))
     
     return suite

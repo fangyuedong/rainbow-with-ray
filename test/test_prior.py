@@ -83,7 +83,8 @@ class TestCase(unittest.TestCase):
         t0 = time.time()
         tree.append(rand_float)
         t1 = time.time()
-        assert abs(tree.total() - sum(rand_float[-min(length, num):])) < 1e-5
+        assert abs(tree.total() - sum(rand_float[-min(length, num):])) < 1e-5, \
+            "{} {}".format(tree.total(), sum(rand_float[-min(length, num):]))
         print("\ninit_segtree: {}s".format(t1-t0))
         return tree   
 
