@@ -62,9 +62,10 @@ class Optimizer():
         for i, (data, check_id, idx, p) in enumerate(self.dataloader):
             data = batch4net(data, self.cuda)
             if self.prior:
-                IS = (self.N * torch.from_numpy(p).cuda()).pow(-self.beta(self.total_opt_steps))
-                self.max_IS = IS.mean()
-                IS = IS / self.max_IS
+                # IS = (self.N * torch.from_numpy(p).cuda()).pow(-self.beta(self.total_opt_steps))
+                IS = (torch.from_numpy(p).cuda()).pow(-self.beta(self.total_opt_steps))
+                # self.max_IS = IS.mean()
+                # IS = IS / self.max_IS
                 if self.total_opt_steps % 1000 == 0:
                     print(IS)
             else:

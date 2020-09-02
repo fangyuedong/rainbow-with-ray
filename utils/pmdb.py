@@ -94,7 +94,8 @@ class Pmdb():
     def sample(self, nb):
         idxs = self.sample_func(self, nb)
         total = self.tree.total()
-        ps = [self.tree[idx]/total for idx in idxs]
+        N = len(self)
+        ps = [self.tree[idx]*N/total for idx in idxs]
         # idxs = np.random.randint(low=0, high=len(self), size=nb).tolist()
         # ps = [1.0/len(self)] * nb
         return self.read(idxs) + (ps,)
