@@ -130,17 +130,16 @@ class DSDQN_Opt(DDQN_Opt):
             discount, update_period, iter_steps, cuda, optimizer, **kwargs) 
 
     def loss_fn(self, state, action, next_state, reward, done):
+        pre_policy = self.policy(state)
+        nxt_policy = self.policy(next_state)
         with torch.no_grad():
-            act = self.policy.action(next_state)
-            target = self.discount * self.target.value(next_state, act) * (1 - done) + reward
-        q_fn = self.policy.value(state, action)
+            pre_target = self.target(state)
+            nxt_target = self.target(next_state)
+        act = self.policy.action4qvalue(nxt_policy).detach()
+        target = self.discount * self.target.value4qvalue(nxt_target, act) * (1 - done) + reward
+        q_fn = self.policy.value4qvalue(pre_policy, action)
         assert q_fn.shape == target.shape
         boost_loss = self.policy.loss_fn(q_fn, target)
-        with torch.no_grad():
-            pre_target = self.target.forward(state)
-            nxt_target = self.target.forward(next_state)
-        pre_policy = self.policy.forward(state)
-        nxt_policy = self.policy.forward(next_state)
         cnsis_loss = self.policy.loss_fn(pre_policy, pre_target) + self.policy.loss_fn(nxt_policy, nxt_target)
         loss = boost_loss + cnsis_loss
         return loss
