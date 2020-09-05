@@ -43,6 +43,13 @@ class DQN(nn.Module):
         x = x.squeeze() if usqz else x
         return x
 
+    def action4qvalue(self, qvalue):
+        return qvalue.max(qvalue.ndim-1)[1]
+    
+    def value4qvalue(self, qvalue, a=None):
+        assert a is None or qvalue.ndim == a.ndim+1, "x.ndim{} is not compatible with a.ndim{}".format(qvalue.ndim, a.ndim)
+        return qvalue.max(qvalue.ndim-1)[0] if a is None else qvalue.gather(qvalue.ndim-1, a.unsqueeze(a.ndim)).squeeze(a.ndim)
+
     def action(self, x):
         x = self.forward(x)
         return x.max(x.ndim-1)[1]
