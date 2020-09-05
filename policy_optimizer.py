@@ -55,14 +55,16 @@ class Optimizer():
             self.optimizer.step()
             self.total_opt_steps += 1
             sum_loss += loss.item()
-            self.update_target() if self.total_opt_steps % self.update_period == 0 else None
+            # self.update_target() if self.total_opt_steps % self.update_period == 0 else None
+            self.update_target()
             if i == period - 1:
                 self.info["opt_steps"] = self.total_opt_steps
                 self.info["loss"] = sum_loss / (i+1)
                 return self.info
 
     def update_target(self):
-        self.target.load_state_dict(self.policy.state_dict())
+        if self.total_opt_steps % self.update_period == 0:
+            self.target.load_state_dict(self.policy.state_dict())     
 
     def loss_fn(self, state, action, next_state, reward, done):
         with torch.no_grad():
@@ -108,3 +110,31 @@ class DDQN_Opt(DQN_Opt):
         assert q_fn.shape == target.shape
         loss = self.policy.loss_fn(q_fn, target)
         return loss
+
+class DSDQN_Opt(DQN_Opt):
+    def __init__(self, dataloader, env_name="PongNoFrameskip-v4", suffix="default", arch=DQN, backbone=BasicNet, 
+        discount=0.99, update_period=10000, iter_steps=1, cuda=True, optimizer=torch.optim.Adam, **kwargs):
+        super(DDQN_Opt, self).__init__(dataloader, env_name, suffix, arch, backbone, 
+            discount, update_period, iter_steps, cuda, optimizer, **kwargs) 
+
+    def loss_fn(self, state, action, next_state, reward, done):
+        with torch.no_grad():
+            act = self.policy.action(next_state)
+            target = self.discount * self.target.value(next_state, act) * (1 - done) + reward
+        q_fn = self.policy.value(state, action)
+        assert q_fn.shape == target.shape
+        boost_loss = self.policy.loss_fn(q_fn, target)
+        with torch.no_grad():
+            pre_target = self.target.forward(state)
+            nxt_target = self.target.forward(next_state)
+        pre_policy = self.policy.forward(state)
+        nxt_policy = self.policy.forward(next_state)
+        cnsis_loss = self.policy.loss_fn(pre_policy, pre_target) + self.policy.loss_fn(nxt_policy, nxt_target)
+        loss = boost_loss + cnsis_loss
+        return loss
+
+    def update_target(self):
+        for t, p in zip(self.target.parameters(), self.policy.parameters()):
+            t = 0.999 * t + 0.001 * p
+        for t, p in zip(self.target.buffers(), self.policy.buffers()):
+            t = 0.999 * t + 0.001 * p   
