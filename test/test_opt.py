@@ -8,7 +8,7 @@ sys.path.append("./")
 from utils.replay_buffer import mmdb_op as db_op
 from utils.dataloader import Dataloader
 from agent import BasicWorker, DQN_Worker
-from policy_optimizer import DDQN_Opt as Optimizer
+from policy_optimizer import DSDQN_Opt as Optimizer
 import torch
 import pickle
 
@@ -63,14 +63,14 @@ class TestCase(unittest.TestCase):
         opt = Optimizer(dataloader, iter_steps=5, update_period=10000, lr=0.625e-4)
         while 1:
             opt_info = next(opt)
-            print("loss {} @ step {} with buff {}".format(opt_info["loss"], opt_info["opt_steps"], db_op.len(buffer)))
+            print("loss {} {} @ step {} with buff {}".format(opt_info["loss"], opt_info["temp"], opt_info["opt_steps"], db_op.len(buffer)))
  
 #提供名为suite()的全局方法，PyUnit在执行测试的过程调用suit()方法来确定有多少个测试用例需要被执行，
 #可以将TestSuite看成是包含所有测试用例的一个容器。
 def suite():
     ray.init()
     suite = unittest.TestSuite()
-    suite.addTest(TestCase("test_train"))
+    # suite.addTest(TestCase("test_train"))
     suite.addTest(TestCase("test_convengence"))
     
     return suite
