@@ -23,17 +23,17 @@ A PyTorch implementation of reinforcement lerning algorithms
 
 * DDQN
 
-    | Game            | Zaxxon                          | Asterix                           | WizardOfWor                               |
-    |:---------------:|:-------------------------------:|:---------------------------------:|:-----------------------------------------:|
-    |Result           |![avatar](./exp/ddqn/Zaxxon.gif) |![avatar](./exp/ddqn/Asterix.gif)  |![avatar](./exp/ddqn/WizardOfWor.gif)      |
-    |Noop Start Score | [11610](./exp/ddqn/Zaxxon.png)  | [27287](./exp/ddqn/Asterix.png)   | [6627](./exp/ddqn/WizardOfWor.png)        |
+    |**Game**             | Zaxxon                          | Asterix                           | WizardOfWor                               |
+    |:-------------------:|:-------------------------------:|:---------------------------------:|:-----------------------------------------:|
+    |**Result**           |![avatar](./exp/ddqn/Zaxxon.gif) |![avatar](./exp/ddqn/Asterix.gif)  |![avatar](./exp/ddqn/WizardOfWor.gif)      |
+    |**Noop Start Score** | [11610](./exp/ddqn/Zaxxon.png)  | [27287](./exp/ddqn/Asterix.png)   | [6627](./exp/ddqn/WizardOfWor.png)        |
 
 * Prior DDQN
 
-    | Game            | Asterix                                 |
-    |:---------------:|:---------------------------------------:|
-    |Result           |![avatar](./exp/prior_ddqn/Asterix.gif)  |
-    |Noop Start Score | [39288](./exp/prior_ddqn/Asterix.png)   |
+    |**Game**             | Asterix                                 |
+    |:-------------------:|:---------------------------------------:|
+    |**Result**           |![avatar](./exp/prior_ddqn/Asterix.gif)  |
+    |**Noop Start Score** | [39288](./exp/prior_ddqn/Asterix.png)   |
 
 ## How to use
 
