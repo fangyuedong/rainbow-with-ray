@@ -6,13 +6,13 @@ A PyTorch implementation of reinforcement lerning algorithms
 * DQN
 * DDQN
 * Distributed
+* Prior replaybuffer
 
 ## What implementing
-* Prior replaybuffer
+* R2D2
 
 ## What to implement
 * Multi-step learning
-* R2D2
 * ...
 
 ## What special compared to other implementions
@@ -23,9 +23,17 @@ A PyTorch implementation of reinforcement lerning algorithms
 
 * DDQN
 
-    | [Zaxxon](./exp/ddqn/Zaxxon.png) | [Asterix](./exp/ddqn/Asterix.png) | [WizardOfWor](./exp/ddqn/WizardOfWor.png) |
-    |:-------------------------------:|:---------------------------------:|:-----------------------------------------:|
-    |![avatar](./exp/ddqn/Zaxxon.gif) |![avatar](./exp/ddqn/Asterix.gif)  |![avatar](./exp/ddqn/WizardOfWor.gif)      |
+    | Game            | Zaxxon                          | Asterix                           | WizardOfWor                               |
+    |:---------------:|:-------------------------------:|:---------------------------------:|:-----------------------------------------:|
+    |Result           |![avatar](./exp/ddqn/Zaxxon.gif) |![avatar](./exp/ddqn/Asterix.gif)  |![avatar](./exp/ddqn/WizardOfWor.gif)      |
+    |Noop Start Score | [11610](./exp/ddqn/Zaxxon.png)  | [27287](./exp/ddqn/Asterix.png)   | [6627](./exp/ddqn/WizardOfWor.png)        |
+
+* Prior DDQN
+
+    | Game            | Asterix                                 |
+    |:---------------:|:---------------------------------------:|
+    |Result           |![avatar](./exp/prior_ddqn/Asterix.gif)  |
+    |Noop Start Score | [39288](./exp/prior_ddqn/Asterix.png)   |
 
 ## How to use
 
@@ -33,9 +41,13 @@ A PyTorch implementation of reinforcement lerning algorithms
 
     nohup python -u main.py Asterix --alg=DQN --buffer=mmdb --num_agents=4 --num_loaders=6 --batch_size=256 --lr=0.625e-4 --suffix="DQN" --speed=8 >train.txt 2>&1 &
 
+* DDQN with an uniform replay buffer
+
+    nohup python -u main.py Asterix --alg=DDQN --buffer=mmdb --num_agents=4 --num_loaders=6 --batch_size=256 --lr=0.625e-4 --suffix="DDQN" --speed=8 >train.txt 2>&1 &
+
 * DDQN with a prior replay buffer
 
-    nohup python -u main.py Asterix --alg=DDQN --buffer=pmdb --num_agents=4 --num_loaders=6 --batch_size=256 --lr=0.625e-4 --suffix="DDQN" --speed=8 >train.txt 2>&1 &
+    nohup python -u main.py Asterix --alg=DDQN --buffer=pmdb --num_agents=4 --num_loaders=6 --batch_size=256 --lr=0.150e-4 --suffix="DDQN" --speed=8 >train.txt 2>&1 &
 
 * Test with a trained model
 
