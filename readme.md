@@ -30,10 +30,10 @@ A PyTorch implementation of reinforcement lerning algorithms
 
 * Prior DDQN
 
-    |**Game**             | Zaxxon                                 | Asterix                                |
-    |:-------------------:|:--------------------------------------:|:--------------------------------------:|
-    |**Result**           | ![avatar](./exp/prior_ddqn/Zaxxon.gif) |![avatar](./exp/prior_ddqn/Asterix.gif) |
-    |**Noop Start Score** | [16198](./exp/prior_ddqn/Zaxxon.png)   | [39288](./exp/prior_ddqn/Asterix.png)  |
+    |**Game**             | Zaxxon                                 | Asterix                                | WizardOfWor                                 |
+    |:-------------------:|:--------------------------------------:|:--------------------------------------:|:-------------------------------------------:|
+    |**Result**           | ![avatar](./exp/prior_ddqn/Zaxxon.gif) |![avatar](./exp/prior_ddqn/Asterix.gif) |![avatar](./exp/prior_ddqn/WizardOfWor.gif)  |
+    |**Noop Start Score** | [16198](./exp/prior_ddqn/Zaxxon.png)   | [39288](./exp/prior_ddqn/Asterix.png)  | [10928.0](./exp/prior_ddqn/WizardOfWor.png) |
 
 ## How to use
 
