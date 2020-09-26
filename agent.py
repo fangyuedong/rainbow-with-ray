@@ -25,7 +25,7 @@ Transition = {"state": np.array, "action": int, "next_state": np.array, "reward"
 class BasicWorker():
     def __init__(self, env_name="PongNoFrameskip-v4", save_interval=1000, max_steps=100000, 
         phase="train", db=None, db_write=None, suffix="default"):
-        assert phase == "train" or phase == "test", "phase can only be train/test"
+        assert phase in ["train", "valid", "test"], "phase can only be train/test/valid"
         self.phase = phase
         self.env = wrap_rainbow(gym.make(env_name), swap=True, phase=phase)
         self.env_name = env_name
@@ -78,7 +78,7 @@ class BasicWorker():
             self.info["total_env_steps"] = episod_len
         return self.info
 
-    def _simulate_with_test(self):
+    def _simulate_with_test(self, episod=30):
         self.ob = self.reset()
         true_ob = self.env.render(mode="rgb_array")   
         fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -88,7 +88,7 @@ class BasicWorker():
             fourcc, 25.0, (true_ob.shape[1], true_ob.shape[0]))
         acc_rw, done = 0, False
         count, acc_len = 0, 0
-        while count < 30 and acc_len < 2*self.max_steps:
+        while count < episod and acc_len < episod*self.max_steps:
             episod_len, done = 0, False
             self.ob = self.reset()
             while not done and episod_len < self.max_steps:
@@ -110,8 +110,10 @@ class BasicWorker():
     def __next__(self):
         if self.phase == "train":
             return self._simulate_with_train()
+        elif self.phase == "valid":
+            return self._simulate_with_test(episod=30)
         else:
-            return self._simulate_with_test()
+            return self._simulate_with_test(episod=200)
     
     def _action(self, eps=None):
         return self.env.action_space.sample()

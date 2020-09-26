@@ -41,7 +41,7 @@ if args.test == False:
 
     buffer = lmdb_op.init(buffer, alpha=0.5)
     workers = [ray.remote(PriorDQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, db=buffer, db_write=lmdb_op.write) for _ in range(n_worker)]
-    test_worker = ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, phase="test", suffix=suffix)
+    test_worker = ray.remote(DQN_Worker).options(num_gpus=0.1).remote(env_name=env_name, phase="valid", suffix=suffix)
     dataloader = Dataloader(buffer, lmdb_op, worker_num=n_loader, batch_size=batch_size, batch_num=n_iter)
     opt = ray.remote(Optimizer).options(num_gpus=0.2).remote(dataloader, env_name, suffix=suffix, iter_steps=n_iter, update_period=10000, lr=lr)
     glog = SummaryWriter("./logdir/{}/{}/{}.lr{}.batch{}".format(env_name, suffix, Optimizer.__name__, lr, batch_size))

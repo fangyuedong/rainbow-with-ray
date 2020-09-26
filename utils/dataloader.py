@@ -39,7 +39,7 @@ def pre_fetch_worker(work_func, dataset, num, batch_size):
         "action": np.stack([x["action"] for x in item], axis=0),
         "next_state": np.stack([x["next_state"] for x in item], axis=0),
         "reward": np.stack([x["reward"] for x in item], axis=0),
-        "done": np.stack([x["done"] for x in item], axis=0)}, item_id, item_idx, np.array(p)) \
+        "done": np.stack([x["done"] for x in item], axis=0)}, item_id, item_idx, np.array(p, dtype=np.float32)) \
         for item, item_id, item_idx, p in zip(data_split, data_id_split, idx_split, p_split)]
     return data
         
