@@ -53,4 +53,8 @@ A PyTorch implementation of reinforcement lerning algorithms
 
     python main.py WizardOfWor --test --suffix="DDQN_gn_normal0" --resume ./model/DQN_BasicNet/WizardOfWorNoFrameskip-v4/DDQN_gn_normal0/iter_3600000K.pkl
 
+## Some notes
+    1. Group norm is added to origin Deepmind's network for less hyperparameter tuning and more consistent learning curve. You will have a insight to the consistent problem in Origin network with ut test "test_convengence" in ./test/test_opt.py even simply using Pong env.
+    2. The code supports one machine multi-gpu training, but not supports multi-machine training
+    3. On AMD 2700 and 2070S it takes about 2 days to gather 200M enveriment steps with 4 agents and train the model .
 
