@@ -70,19 +70,22 @@ class Dataloader():
         self.tsks = []
         self.cache = []
         self.update_prior_tsks = []
-        self.thread_event = threading.Event()
+        self.end_event = threading.Event()
+        self.start_event = threading.Event()
         self.prefetch_queue = queue.Queue(maxsize=batch_num+1)
         self.pin_queue = queue.Queue(maxsize=batch_num+1)
         self.prefetch_thread = threading.Thread(
             target=self.pre_fetch, 
-            args=(self.prefetch_queue, self.thread_event))
+            args=(self.prefetch_queue, self.start_event, self.end_event))
         self.pin_thread = threading.Thread(
             target=self.pin_memory, 
-            args=(self.prefetch_queue, self.pin_queue, torch.cuda.current_device(), self.thread_event))
+            args=(self.prefetch_queue, self.pin_queue, torch.cuda.current_device(), self.end_event))
         self.prefetch_thread.start()
         self.pin_thread.start()
 
-    def pre_fetch(self, out_queue, done_event):
+    def pre_fetch(self, out_queue, start_event, done_event):
+        while not start_event.is_set():
+            time.sleep(0.05)
         while len(self.tsks) < self.worker_num:
             self.tsks.append(pre_fetch_worker.remote(self.data_op.sample, self.dataset, 
                 self.batch_num//self.worker_num, self.batch_size))
@@ -132,6 +135,8 @@ class Dataloader():
         return self
 
     def __next__(self):
+        if not self.start_event.is_set():
+            self.start_event.set()
         while 1:
             try:
                 data = self.pin_queue.get(timeout=MP_STATUS_CHECK_INTERVAL)
@@ -146,8 +151,8 @@ class Dataloader():
         self.update_prior_tsks.append(update_prior_worker.remote(self.data_op.update, self.dataset, idxs, priors, check_ids))
 
     def __del__(self):
-        print("delete")
-        self.thread_event.set()
+        self.start_event.set()
+        self.end_event.set()
         self.prefetch_thread.join()
         self.pin_thread.join()
 

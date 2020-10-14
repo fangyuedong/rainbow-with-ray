@@ -71,7 +71,9 @@ class TestCase(unittest.TestCase):
     def test_time(self):
         buffer = db_op.init("./ut_lmdb_l")
         exc_worker = DQN_Worker(db=buffer, db_write=db_op.write)
-        # exc_worker.update(opt(), 1)
+        dataloader = Dataloader(buffer, db_op, batch_size=256, worker_num=8, batch_num=40)
+        opt = Optimizer(dataloader, iter_steps=400, update_period=10000)
+        exc_worker.update(opt(), 1)
         count = 0
         while 1:
             wk_info = next(exc_worker)
@@ -80,8 +82,6 @@ class TestCase(unittest.TestCase):
                 print("worker reward: {} @ episod {}".format(wk_info["episod_rw"], count))
                 count += 1
             if db_op.len(buffer) >= 20000:
-                dataloader = Dataloader(buffer, db_op, batch_size=256, worker_num=8, batch_num=40)
-                opt = Optimizer(dataloader, iter_steps=400, update_period=10000)
                 t0 = time.time()
                 next(opt)
                 t1 = time.time()
