@@ -25,12 +25,13 @@ class TestCase(unittest.TestCase):
         for data, _, _, p in dataloader:
             # fd = {k: torch.from_numpy(v) for k, v in data.items()}
             # fd = {k: v.cuda().float() for k, v in fd.items()}
+            fd = {k: v.cuda().float() for k, v in data.items()}
             count += 1
             if count == 1000:
                 break
         print(time.time() - t0)
         db_op.clean(buffer)
-        del dataloader
+        dataloader.__del__()
             
 
     

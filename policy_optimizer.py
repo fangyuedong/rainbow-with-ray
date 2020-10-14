@@ -62,7 +62,7 @@ class Optimizer():
         for i, (data, check_id, idx, p) in enumerate(self.dataloader):
             data = batch4net(data, self.cuda)
             if self.prior:
-                IS = (torch.from_numpy(p).cuda()).pow(-self.beta(self.total_opt_steps))
+                IS = p.cuda().pow(-self.beta(self.total_opt_steps))
             else:
                 IS = None
             loss, td_err = self.loss_fn(**data, IS=IS)

@@ -24,8 +24,10 @@ def tnx2batch(data, batch_size):
         for item in data_split]   
     return batch_data 
 
-f_cuda = lambda k, x: torch.from_numpy(x).cuda().float() if k != "action" else torch.from_numpy(x).cuda()
-f_cpu  = lambda k, x: torch.from_numpy(x).float() if k != "action" else torch.from_numpy(x)
+# f_cuda = lambda k, x: torch.from_numpy(x).cuda().float() if k != "action" else torch.from_numpy(x).cuda()
+# f_cpu  = lambda k, x: torch.from_numpy(x).float() if k != "action" else torch.from_numpy(x)
+f_cuda = lambda k, x: x.cuda().float() if k != "action" else x.cuda()
+f_cpu  = lambda k, x: x.float() if k != "action" else x
 
 def batch4net(batch, cuda=True):
     f = f_cuda if cuda else f_cpu
@@ -82,16 +84,19 @@ class Dataloader():
 
     def pre_fetch(self, out_queue, done_event):
         while len(self.tsks) < self.worker_num:
-            self.tsks.append(pre_fetch_worker.remote(self.data_op.sample, self.dataset, 1, self.batch_size))
+            self.tsks.append(pre_fetch_worker.remote(self.data_op.sample, self.dataset, 
+                self.batch_num//self.worker_num, self.batch_size))
         tsk_dones = []
         while not done_event.is_set():
             try:
                 if len(tsk_dones) == 1:
-                    r = ray.get(tsk_dones[0])[0]
-                    tnx, item_id, item_idx, prior = r
-                    r = (tnx2tensor(tnx), item_id, item_idx, prior2tensor(prior))
-                    out_queue.put(r, timeout=MP_STATUS_CHECK_INTERVAL)
-                    self.tsks.append(pre_fetch_worker.remote(self.data_op.sample, self.dataset, 1, self.batch_size))
+                    rs = ray.get(tsk_dones[0])
+                    for r0 in rs:
+                        tnx, item_id, item_idx, prior = r0
+                        r = (tnx2tensor(tnx), item_id, item_idx, prior2tensor(prior))
+                        out_queue.put(r, timeout=MP_STATUS_CHECK_INTERVAL)
+                    self.tsks.append(pre_fetch_worker.remote(self.data_op.sample, self.dataset, 
+                        self.batch_num//self.worker_num, self.batch_size))
             except queue.Full:
                 time.sleep(0.001)
                 continue

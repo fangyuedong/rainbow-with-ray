@@ -67,14 +67,36 @@ class TestCase(unittest.TestCase):
             if "total" not in config:
                 config["total"] = 0
             print("loss {} @ step {} with buff {} total {}".format(opt_info["loss"], opt_info["opt_steps"], db_op.len(buffer), config["total"]))
- 
+
+    def test_time(self):
+        buffer = db_op.init("./ut_lmdb_l")
+        exc_worker = DQN_Worker(db=buffer, db_write=db_op.write)
+        # exc_worker.update(opt(), 1)
+        count = 0
+        while 1:
+            wk_info = next(exc_worker)
+            if wk_info is not None:
+                # exc_worker.save("./train_video") if count % 100 == 0 else None
+                print("worker reward: {} @ episod {}".format(wk_info["episod_rw"], count))
+                count += 1
+            if db_op.len(buffer) >= 20000:
+                dataloader = Dataloader(buffer, db_op, batch_size=256, worker_num=8, batch_num=40)
+                opt = Optimizer(dataloader, iter_steps=400, update_period=10000)
+                t0 = time.time()
+                next(opt)
+                t1 = time.time()
+                print(t1-t0)
+                break
+        db_op.clean(buffer)
+        dataloader.__del__()
+
 #提供名为suite()的全局方法，PyUnit在执行测试的过程调用suit()方法来确定有多少个测试用例需要被执行，
 #可以将TestSuite看成是包含所有测试用例的一个容器。
 def suite():
     ray.init()
     suite = unittest.TestSuite()
     # suite.addTest(TestCase("test_train"))
-    suite.addTest(TestCase("test_convengence"))
+    suite.addTest(TestCase("test_time"))
     
     return suite
 
