@@ -27,7 +27,10 @@ class BasicWorker():
         phase="train", db=None, db_write=None, suffix="default"):
         assert phase in ["train", "valid", "test"], "phase can only be train/test/valid"
         self.phase = phase
-        self.env = wrap_rainbow(gym.make(env_name), swap=True, phase=phase)
+        if self.phase == "train":
+            self.env = wrap_rainbow(gym.make(env_name), swap=True, phase="train")
+        else:
+            self.env = wrap_rainbow(gym.make(env_name), swap=True, phase="test")
         self.env_name = env_name
         self.save_interval = save_interval
         self.max_steps = max_steps
